@@ -1,0 +1,5 @@
+node_modules/
+data/*.json
+exports/*.md
+.omc/
+.DS_Store

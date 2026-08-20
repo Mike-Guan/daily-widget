@@ -1,0 +1,13 @@
+{
+  "name": "daily-widget",
+  "version": "1.0.0",
+  "description": "Personal daily routine widget",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^33.0.0"
+  }
+}
