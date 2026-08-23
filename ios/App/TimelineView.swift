@@ -4,6 +4,7 @@ struct TimelineView: View {
     @EnvironmentObject private var store: PlannerStore
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
+    @Binding var showingQuickCreate: Bool
     @GestureState private var pressState = false
     @State private var draftStart: Int?
     @State private var draftEnd: Int?
@@ -63,7 +64,7 @@ struct TimelineView: View {
     }
 
     private var createGesture: some Gesture {
-        LongPressGesture(minimumDuration: 0.25, maximumDistance: 14)
+        LongPressGesture(minimumDuration: 1.0, maximumDistance: 14)
             .updating($pressState) { value, state, _ in state = value }
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
             .onChanged { value in
@@ -76,7 +77,7 @@ struct TimelineView: View {
                 guard case .second(true, let drag?) = value else { draftStart = nil; draftEnd = nil; return }
                 let start = snap(minute(at: drag.startLocation.y)); let end = max(start + 15, snap(minute(at: drag.location.y)));
                 let task = PlannerTask.empty(date: store.dateKey, start: min(start, end - 15), end: max(start + 15, end), deviceID: UserDefaults.standard.string(forKey: "deviceID") ?? "iphone")
-                draftStart = nil; draftEnd = nil; selectedTask = task; showingEditor = true
+                draftStart = nil; draftEnd = nil; selectedTask = task; showingQuickCreate = true
             }
     }
 

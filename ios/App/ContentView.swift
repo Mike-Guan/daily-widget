@@ -7,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject private var store: PlannerStore
     @State private var selectedTask: PlannerTask?
     @State private var showingEditor = false
+    @State private var showingQuickCreate = false
     @State private var showingSettings = false
     @State private var pickingSyncFolder = false
     @State private var tab: AppTab = .today
@@ -21,6 +22,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(colorScheme)
         .sheet(isPresented: $showingEditor) { if let task = selectedTask { TaskEditor(task: task) } }
+        .sheet(isPresented: $showingQuickCreate) { if let task = selectedTask { QuickCreateSheet(task: task, selectedTask: $selectedTask, showingEditor: $showingEditor) } }
         .sheet(isPresented: $showingSettings) { SettingsView(pickingFolder: $pickingSyncFolder) }
         .fileImporter(isPresented: $pickingSyncFolder, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { store.setSyncFolder(url) }
@@ -33,7 +35,7 @@ struct ContentView: View {
 
     private var todayPage: some View {
         NavigationStack {
-            TimelineView(selectedTask: $selectedTask, showingEditor: $showingEditor)
+            TimelineView(selectedTask: $selectedTask, showingEditor: $showingEditor, showingQuickCreate: $showingQuickCreate)
                 .tint(.indigo)
                 .navigationTitle(text("Today", "今天"))
                 .toolbar {
@@ -125,6 +127,36 @@ private struct DailyReviewPage: View {
     private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
     private func time(_ minute: Int) -> String { String(format: "%02d:%02d", minute % 1440 / 60, minute % 60) }
     private func encouragement(done: Int, total: Int) -> String { if total == 0 { return text("Nothing was scheduled today. Leaving space is valid, too.", "今天没有已计划的任务；留一点空白也是一种安排。") }; if done == total { return text("Wonderful — every planned task is complete.", "太棒了，今天安排的事项已经全部完成。") }; return text("Nice work: \(done) task(s) complete. The rest can be arranged with care.", "做得很好，已经完成 \(done) 项；剩下的也可以从容安排。") }
+}
+
+private struct QuickCreateSheet: View {
+    @EnvironmentObject private var store: PlannerStore
+    @Environment(\.dismiss) private var dismiss
+    let task: PlannerTask
+    @Binding var selectedTask: PlannerTask?
+    @Binding var showingEditor: Bool
+    @State private var title = ""
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(text("What is this time for?", "这段时间要做什么？")).font(.headline)
+                Text("\(time(task.start ?? 0)) – \(time(task.end ?? 0))").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                TextField(text("Task name", "任务名称"), text: $title).textFieldStyle(.roundedBorder).submitLabel(.done).onSubmit { _ = save() }
+                Button { if save() { showingEditor = true } } label: { Label(text("Add details", "补充详情"), systemImage: "slider.horizontal.3") }.buttonStyle(.bordered).disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Spacer()
+            }
+            .padding()
+            .navigationTitle(text("New task", "新任务"))
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(text("Cancel", "取消")) { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button(text("Save", "保存")) { _ = save() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }
+        }
+        .presentationDetents([.height(300)])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func save() -> Bool { let name = title.trimmingCharacters(in: .whitespacesAndNewlines); guard !name.isEmpty else { return false }; var value = task; value.title = name; store.save(value); selectedTask = value; dismiss(); return true }
+    private func time(_ minute: Int) -> String { String(format: "%02d:%02d", minute % 1440 / 60, minute % 60) }
+    private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
 }
 
 private struct SettingsView: View {
