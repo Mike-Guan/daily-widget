@@ -5,9 +5,11 @@
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "electron ."
+    "start": "./node_modules/electron/dist/Electron.app/Contents/MacOS/Electron .",
+    "test": "node --test",
+    "package:mac": "zsh scripts/package-mac.sh"
   },
   "dependencies": {
-    "electron": "^33.0.0"
+    "electron": "43.4.1"
   }
 }

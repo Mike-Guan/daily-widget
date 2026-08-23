@@ -1,711 +1,79 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>Daily Routine</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  :root{
-    --hour-h: 56px;
-    --grid-left: 64px;
-    --border: #d8dce1;
-    --text: #2b2f36;
-    --muted: #8a8f98;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Helvetica, Arial, sans-serif;
-    color:var(--text);
-    background:#f7f7f8;
-  }
-  header{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:12px 16px;
-    border-bottom:1px solid var(--border);
-    background:#fff;
-    position:sticky;
-    top:0;
-    z-index:20;
-    flex-wrap:wrap;
-  }
-  header h1{
-    font-size:16px;
-    font-weight:600;
-    margin:0 8px 0 0;
-    white-space:nowrap;
-  }
-  button, input[type=date]{
-    font-family:inherit;
-    font-size:13px;
-    border:1px solid var(--border);
-    background:#fff;
-    border-radius:8px;
-    padding:6px 10px;
-    cursor:pointer;
-    color:var(--text);
-  }
-  button:hover{ background:#f0f1f3; }
-  button.primary{
-    background:#2b2f36;
-    color:#fff;
-    border-color:#2b2f36;
-  }
-  button.primary:hover{ background:#1c1f24; }
-  .spacer{flex:1;}
-  .hint{
-    font-size:12px;
-    color:var(--muted);
-    padding:6px 16px 0 16px;
-  }
-  .board-wrap{
-    padding:16px;
-    max-width:760px;
-    margin:0 auto;
-  }
-  .board{
-    position:relative;
-    background:#fff;
-    border:1px solid var(--border);
-    border-radius:12px;
-    overflow:hidden;
-    user-select:none;
-  }
-  .hour-row{
-    position:absolute;
-    left:0; right:0;
-    border-top:1px solid #eef0f2;
-    height:var(--hour-h);
-  }
-  .hour-row.half{
-    border-top:1px dashed #f2f3f5;
-  }
-  .hour-label{
-    position:absolute;
-    left:0;
-    width:var(--grid-left);
-    text-align:right;
-    padding-right:10px;
-    font-size:11px;
-    color:var(--muted);
-    transform:translateY(-6px);
-  }
-  .grid-click-area{
-    position:absolute;
-    left:var(--grid-left);
-    right:0;
-    top:0;
-    bottom:0;
-    cursor:crosshair;
-  }
-  .now-line{
-    position:absolute;
-    left:var(--grid-left);
-    right:0;
-    height:2px;
-    background:#e0453c;
-    z-index:5;
-    pointer-events:none;
-  }
-  .now-line::before{
-    content:"";
-    position:absolute;
-    left:-4px; top:-3px;
-    width:8px; height:8px;
-    border-radius:50%;
-    background:#e0453c;
-  }
-  .task{
-    position:absolute;
-    left:var(--grid-left);
-    right:8px;
-    border-radius:10px;
-    border:1.5px solid rgba(0,0,0,0.12);
-    padding:6px 8px 8px 8px;
-    overflow:hidden;
-    cursor:grab;
-    box-shadow:0 1px 2px rgba(0,0,0,0.04);
-    min-height:22px;
-  }
-  .task.dragging{ cursor:grabbing; opacity:0.9; z-index:10; }
-  .task .top-row{
-    display:flex;
-    align-items:flex-start;
-    gap:6px;
-  }
-  .task .done-box{
-    margin-top:2px;
-    cursor:pointer;
-    flex:0 0 auto;
-  }
-  .task .text{
-    flex:1;
-    font-size:13px;
-    line-height:1.3;
-    outline:none;
-    word-break:break-word;
-    cursor:text;
-  }
-  .task.done .text{
-    text-decoration:line-through;
-    color:var(--muted);
-  }
-  .task .time-label{
-    font-size:10px;
-    color:rgba(0,0,0,0.45);
-    margin-top:2px;
-  }
-  .task .close-btn{
-    flex:0 0 auto;
-    width:16px; height:16px;
-    border-radius:50%;
-    background:rgba(0,0,0,0.08);
-    color:rgba(0,0,0,0.55);
-    font-size:11px;
-    line-height:16px;
-    text-align:center;
-    cursor:pointer;
-    opacity:0;
-    transition:opacity .1s;
-  }
-  .task:hover .close-btn{ opacity:1; }
-  .task .swatch-btn{
-    flex:0 0 auto;
-    width:14px; height:14px;
-    border-radius:50%;
-    border:1px solid rgba(0,0,0,0.2);
-    cursor:pointer;
-    margin-top:2px;
-  }
-  .task .palette{
-    position:absolute;
-    top:100%;
-    left:0;
-    margin-top:4px;
-    display:flex;
-    gap:4px;
-    background:#fff;
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:4px;
-    box-shadow:0 4px 10px rgba(0,0,0,0.12);
-    z-index:15;
-  }
-  .task .palette .sw{
-    width:16px; height:16px;
-    border-radius:50%;
-    cursor:pointer;
-    border:1px solid rgba(0,0,0,0.15);
-  }
-  .task .resize-handle{
-    position:absolute;
-    left:0; right:0; bottom:0;
-    height:8px;
-    cursor:ns-resize;
-  }
-  .toast{
-    position:fixed;
-    bottom:20px;
-    left:50%;
-    transform:translateX(-50%);
-    background:#2b2f36;
-    color:#fff;
-    padding:8px 14px;
-    border-radius:8px;
-    font-size:13px;
-    opacity:0;
-    transition:opacity .2s;
-    pointer-events:none;
-    z-index:100;
-  }
-  .toast.show{ opacity:1; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Widget</title>
+  <style>
+    :root { --bg:#f5f6fa; --surface:#fff; --surface-alt:#f8f9fc; --text:#202431; --muted:#747b8c; --line:#e6e8ef; --accent:#536dfe; --accent-soft:#e8ebff; --danger:#c84b5b; --shadow:0 10px 30px rgba(35,42,70,.08); --hour:64px; --timeline-left:58px; }
+    :root[data-theme="dark"] { --bg:#15171d; --surface:#20232c; --surface-alt:#282c36; --text:#f0f2f7; --muted:#a8adba; --line:#373c49; --accent:#a9b4ff; --accent-soft:#31395d; --danger:#ff9dab; --shadow:0 12px 32px rgba(0,0,0,.25); }
+  *{box-sizing:border-box} [hidden]{display:none!important} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",Helvetica,Arial,sans-serif;font-size:14px;min-width:700px} button,input,textarea,select{font:inherit;color:inherit} button{border:0;cursor:pointer} button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 38%,transparent);outline-offset:2px}
+    .app-shell{min-height:100vh;display:grid;grid-template-columns:236px minmax(0,1fr)}
+    .sidebar{border-right:1px solid var(--line);padding:26px 16px;display:flex;flex-direction:column;gap:22px;background:color-mix(in srgb,var(--surface) 75%,var(--bg))}.brand{display:flex;align-items:center;gap:10px;padding:0 8px}.brand-mark{display:grid;place-items:center;width:29px;height:29px;border-radius:10px;background:linear-gradient(145deg,#7d90ff,#445de9);color:#fff;font-weight:800;box-shadow:0 5px 12px rgba(68,93,233,.24)}.brand strong{font-size:15px}.brand small{display:block;color:var(--muted);margin-top:2px;font-size:11px}.nav-group{display:grid;gap:4px}.nav-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin:0 10px 6px;text-transform:uppercase}.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;background:none;border-radius:10px;text-align:left;color:var(--muted)}.nav-item:hover,.nav-item.active{background:var(--accent-soft);color:var(--accent)}.nav-icon{width:18px;text-align:center}.nav-count{margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-size:11px;color:var(--muted)}.sidebar-footer{margin-top:auto;padding:0 4px;display:grid;gap:8px}.sync-status{font-size:11px;color:var(--muted);line-height:1.45}.sync-status.ok{color:#3b9c67}.sync-status.warn{color:#b57b12}.subtle-btn{background:none;color:var(--muted);padding:8px;border-radius:8px;text-align:left}.subtle-btn:hover{background:var(--surface-alt);color:var(--text)}
+    .main{min-width:0;padding:24px 30px 38px;max-width:1500px;width:100%;margin:0 auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px}.date-block{display:flex;align-items:center;gap:10px}.date-block h1{font-size:24px;letter-spacing:-.04em;margin:0}.date-block p{margin:3px 0 0;color:var(--muted);font-size:12px}.icon-btn,.toolbar-btn{display:grid;place-items:center;border:1px solid var(--line);background:var(--surface);min-width:34px;height:34px;border-radius:10px;color:var(--muted)}.icon-btn:hover,.toolbar-btn:hover{background:var(--surface-alt);color:var(--text)}.top-actions{display:flex;gap:8px;align-items:center}.toolbar-btn{display:flex;gap:7px;padding:0 11px;font-size:12px}.toolbar-btn.primary{background:var(--text);border-color:var(--text);color:var(--surface)}.toolbar-btn.primary:hover{opacity:.88}.toolbar-btn .dot{width:6px;height:6px;background:#64c996;border-radius:50%}.dashboard{display:grid;grid-template-columns:minmax(280px,1.2fr) repeat(2,minmax(145px,.55fr));gap:12px;margin-bottom:20px}.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(20,28,60,.02)}.quick-card{padding:14px}.quick-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin-bottom:8px}.quick-row{display:flex;gap:8px}.quick-row input{min-width:0;flex:1;border:0;background:transparent;padding:4px 2px;font-size:14px}.quick-row input::placeholder{color:var(--muted)}.add-round{width:30px;height:30px;flex:none;border-radius:9px;background:var(--accent);color:#fff;font-size:18px;line-height:1}.summary-card{padding:14px 15px;display:flex;flex-direction:column;justify-content:space-between;min-height:76px}.summary-card span{font-size:12px;color:var(--muted)}.summary-card strong{font-size:21px;letter-spacing:-.04em}.summary-card .caption{font-size:11px;color:var(--muted)}.focus-row{display:flex;gap:6px;margin-top:8px}.focus-pip{height:5px;flex:1;border-radius:5px;background:var(--line)}.focus-pip.active{background:var(--accent)}
+    .workspace{display:grid;grid-template-columns:minmax(460px,1fr) 255px;gap:18px;align-items:start}.planner{min-width:0}.section-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}.section-heading h2{font-size:14px;margin:0;letter-spacing:-.01em}.section-heading span{font-size:12px;color:var(--muted)}.timeline-card{overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow)}.timeline-scroll{max-height:calc(100vh - 260px);min-height:540px;overflow:auto;overscroll-behavior:contain}.timeline{position:relative;min-height:1216px;user-select:none}.hour-line{position:absolute;left:0;right:0;border-top:1px solid var(--line);height:var(--hour)}.hour-line.half{border-top:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}.hour-label{position:absolute;width:var(--timeline-left);padding-right:11px;text-align:right;transform:translateY(-7px);font-size:10px;color:var(--muted)}.hour-label.first{transform:translateY(6px)}.grid-hit{position:absolute;left:var(--timeline-left);right:0;top:0;bottom:0;cursor:crosshair}.grid-hit.drop-active{background:color-mix(in srgb,var(--accent) 10%,transparent);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent)}.now-line{position:absolute;left:var(--timeline-left);right:0;height:2px;background:#ec5a61;z-index:4;pointer-events:none}.now-line::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;background:#ec5a61;border-radius:50%}.task{position:absolute;left:calc(var(--timeline-left) + 8px);right:10px;min-height:28px;border:1px solid;padding:6px 8px;border-radius:10px;box-shadow:0 2px 4px rgba(35,42,70,.06);overflow:hidden;z-index:3;transition:box-shadow .12s,transform .12s}.task:hover{box-shadow:0 5px 12px rgba(35,42,70,.13)}.task.dragging{z-index:8;opacity:.92;box-shadow:0 12px 20px rgba(35,42,70,.2)}.task-top{display:flex;align-items:flex-start;gap:6px;min-width:0}.task-check{appearance:none;cursor:pointer;width:14px;height:14px;border:1.5px solid rgba(31,41,55,.35);border-radius:50%;background:rgba(255,255,255,.35);margin:2px 0 0;flex:none}.task-check:checked{background:var(--text);border-color:var(--text)}.task-check:checked::after{content:"✓";display:block;color:#fff;font-size:9px;line-height:12px;text-align:center}.task-title{border:0;background:transparent;padding:0;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:1;line-height:1.35;font-size:12px}.task-inline-input{min-width:0;flex:1;border:0;border-bottom:1px solid rgba(35,42,70,.3);outline:0;background:rgba(255,255,255,.42);padding:1px 3px;border-radius:3px;font-size:12px;line-height:1.35}.task.done .task-title{text-decoration:line-through;opacity:.54}.task-meta{font-size:10px;opacity:.64;margin:4px 0 0 20px}.task-actions{display:flex;gap:2px;opacity:0;transition:opacity .12s}.task:hover .task-actions{opacity:1}.task-action{display:grid;place-items:center;width:17px;height:17px;padding:0;background:rgba(255,255,255,.4);border-radius:5px;color:rgba(30,35,45,.7);font-size:11px}.task-action:hover{background:rgba(255,255,255,.75)}.resize-handle{position:absolute;height:7px;left:0;right:0;bottom:0;cursor:ns-resize}.preview{pointer-events:none;opacity:.62}.collection-view{max-width:960px;margin:0 auto}.view-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:8px 0 18px}.view-header h2{font-size:26px;letter-spacing:-.04em;margin:0}.view-header p{margin:5px 0 0;color:var(--muted)}.view-grid{display:grid;gap:12px}.collection-card{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:15px;box-shadow:0 1px 2px rgba(20,28,60,.02)}.collection-card .card-main{flex:1;min-width:0}.collection-card h3{font-size:14px;margin:0 0 5px;overflow-wrap:anywhere}.collection-card p{font-size:12px;color:var(--muted);margin:0;line-height:1.45;overflow-wrap:anywhere}.collection-card.done h3{text-decoration:line-through;color:var(--muted)}.collection-actions{display:flex;gap:7px;flex:0 0 auto}.collection-actions button{padding:7px 9px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:12px}.collection-actions button.primary{background:var(--accent);color:#fff}.review-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}.review-stat{padding:15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}.review-stat strong{display:block;font-size:25px;letter-spacing:-.04em}.review-stat span{font-size:12px;color:var(--muted)}.review-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}.review-section h3{font-size:14px;margin:0 0 10px}.encouragement{padding:13px 15px;border-radius:13px;background:var(--accent-soft);color:var(--accent);font-size:13px;line-height:1.5;margin-bottom:18px}
+    .side-panel{display:grid;gap:14px;position:sticky;top:18px;min-width:0}.panel{min-width:0;overflow:hidden;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px}.panel-title{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:10px}.panel-title button{background:none;color:var(--accent);font-size:12px;padding:0}.inbox-list,.focus-list{display:grid;gap:7px}.inbox-list.expanded{max-height:calc(100vh - 300px);overflow:auto;padding-right:3px}.empty-state{min-width:0;overflow-wrap:anywhere;color:var(--muted);font-size:12px;line-height:1.45;padding:8px 0}.inbox-item{display:flex;gap:7px;align-items:flex-start;min-width:0;padding:9px;border-radius:10px;background:var(--surface-alt);cursor:grab}.inbox-item:active{cursor:grabbing}.inbox-item.drag-source{opacity:.48}.inbox-item strong{flex:1;min-width:0;font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:anywhere}.inbox-item button{flex:0 0 auto;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent)}.focus-item{display:flex;align-items:center;gap:7px;min-width:0;font-size:12px}.focus-item .category-dot{width:7px;height:7px;border-radius:50%;flex:none}.focus-item span{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4}.review-btn{width:100%;padding:9px;border-radius:10px;background:var(--surface-alt);color:var(--muted);font-size:12px;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.4}.review-btn:hover{color:var(--text);background:var(--accent-soft)}
+    dialog{border:0;padding:0;background:transparent;max-width:min(480px,calc(100vw - 32px));color:var(--text)}dialog::backdrop{background:rgba(18,22,33,.38);backdrop-filter:blur(3px)}.modal{width:460px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 80px rgba(0,0,0,.24);padding:20px}.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.modal-header h3{margin:0;font-size:17px;letter-spacing:-.03em}.modal-close{background:none;color:var(--muted);font-size:20px;padding:2px 5px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}.field{display:grid;gap:5px}.field.full{grid-column:1/-1}.field label{font-size:11px;color:var(--muted);font-weight:650}.field input,.field textarea,.field select{width:100%;background:var(--surface-alt);border:1px solid var(--line);border-radius:9px;padding:8px 9px}.field textarea{min-height:72px;resize:vertical}.toggle-field{display:flex;gap:8px;align-items:center;padding-top:9px}.modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:18px}.modal-actions.export-actions{justify-content:flex-end;gap:8px}.modal-actions .right{display:flex;gap:8px}.danger-btn{background:none;color:var(--danger);padding:7px 0}.cancel-btn,.save-btn{padding:9px 12px;border-radius:9px}.cancel-btn{background:var(--surface-alt);border:1px solid var(--line)}.save-btn{background:var(--accent);color:#fff}.review-list{display:grid;gap:8px}.review-item{display:flex;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.review-item:last-child{border-bottom:0}.review-item span{flex:1;font-size:13px}.review-item button{padding:6px 8px;background:var(--accent-soft);color:var(--accent);border-radius:7px;font-size:11px}.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,14px);opacity:0;pointer-events:none;background:var(--text);color:var(--surface);padding:9px 14px;border-radius:10px;box-shadow:var(--shadow);font-size:12px;transition:.18s ease;z-index:20}.toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:1200px){.app-shell{grid-template-columns:64px minmax(0,1fr)}.sidebar{padding:22px 10px;align-items:center}.brand strong,.brand small,.nav-label,.nav-item span:not(.nav-icon):not(.nav-count),.nav-count,.sidebar-footer{display:none}.brand{padding:0}.nav-item{justify-content:center;padding:10px}.main{padding:20px}}
+    @media(max-width:1150px){.workspace{grid-template-columns:minmax(0,1fr)}.side-panel{position:static;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}}
+    @media(max-width:920px){body{min-width:0}}
+    @media(max-width:620px){.topbar{align-items:flex-start}.top-actions .toolbar-btn:not(.primary){display:none}.dashboard{grid-template-columns:1fr 1fr}.quick-card{grid-column:1/-1}.summary-card{min-height:67px}.date-block h1{font-size:20px}.main{padding:15px 12px}.side-panel,.review-columns{grid-template-columns:1fr}.timeline-scroll{max-height:none;height:620px}.task-actions{opacity:1}.review-summary{grid-template-columns:1fr 1fr}.view-header h2{font-size:22px}}
+    .form-error{margin:12px 0 0;color:var(--danger);font-size:12px;line-height:1.4}
+  </style>
 </head>
 <body>
-
-<header>
-  <h1 id="dateHeading">Today</h1>
-  <button id="prevDay">‹</button>
-  <input type="date" id="datePicker">
-  <button id="nextDay">›</button>
-  <button id="todayBtn">Today</button>
-  <div class="spacer"></div>
-  <button id="addTaskBtn">+ Add task</button>
-  <button id="exportBtn" class="primary">Export to Obsidian</button>
-</header>
-<div class="hint">Drag on the grid to add a task &middot; drag a block to move it &middot; drag its bottom edge to resize &middot; click the text to rename &middot; click the dot to recolor</div>
-
-<div class="board-wrap">
-  <div class="board" id="board"></div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const START_HOUR = 5;
-const END_HOUR = 24;
-const HOUR_H = 56;
-const SNAP_MIN = 15;
-const PX_PER_MIN = HOUR_H / 60;
-const TOTAL_MIN = (END_HOUR - START_HOUR) * 60;
-const TOTAL_H = TOTAL_MIN * PX_PER_MIN;
-
-const COLORS = [
-  {fill:'#cfe8ff', border:'#8fbfe8'},
-  {fill:'#d3f2dd', border:'#8fd1a3'},
-  {fill:'#fff3c4', border:'#e8d27a'},
-  {fill:'#ffd6e8', border:'#e89fc0'},
-  {fill:'#e6d9ff', border:'#bda3e8'},
-  {fill:'#ffe0c2', border:'#e8b07a'},
-  {fill:'#c9f2ee', border:'#7ecbc4'},
-  {fill:'#e6e6e6', border:'#b8b8b8'},
-];
-
-const board = document.getElementById('board');
-const dateHeading = document.getElementById('dateHeading');
-const datePicker = document.getElementById('datePicker');
-const toastEl = document.getElementById('toast');
-
-let currentDate = new Date();
-let tasks = [];
-let dragState = null;
-
-function fmtDateKey(d){
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-function isToday(d){
-  return fmtDateKey(d) === fmtDateKey(new Date());
-}
-function minToHHMM(min){
-  const h = Math.floor(min/60), m = min%60;
-  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-}
-function snap(min){
-  return Math.round(min / SNAP_MIN) * SNAP_MIN;
-}
-function clampMin(min){
-  return Math.max(START_HOUR*60, Math.min(END_HOUR*60, min));
-}
-function yToMin(y){
-  return clampMin(snap(START_HOUR*60 + y / PX_PER_MIN));
-}
-function minToY(min){
-  return (min - START_HOUR*60) * PX_PER_MIN;
-}
-function uid(){
-  return 't' + Math.floor(Math.random()*1e9) + '_' + Math.floor(performance.now());
-}
-
-function hasFileStore(){
-  return typeof window.routineStore !== 'undefined';
-}
-
-async function loadTasks(){
-  const key = fmtDateKey(currentDate);
-  if(hasFileStore()){
-    tasks = await window.routineStore.load(key);
-  }else{
-    try{
-      const raw = localStorage.getItem('daily-widget:' + key);
-      tasks = raw ? JSON.parse(raw) : [];
-    }catch(e){
-      tasks = [];
-    }
-  }
-}
-
-function saveTasks(){
-  const key = fmtDateKey(currentDate);
-  if(hasFileStore()){
-    window.routineStore.save(key, tasks);
-  }else{
-    localStorage.setItem('daily-widget:' + key, JSON.stringify(tasks));
-  }
-}
-
-function renderHeading(){
-  const opts = {weekday:'long', month:'short', day:'numeric', year:'numeric'};
-  dateHeading.textContent = (isToday(currentDate) ? 'Today · ' : '') + currentDate.toLocaleDateString(undefined, opts);
-  datePicker.value = fmtDateKey(currentDate);
-}
-
-function renderGrid(){
-  board.innerHTML = '';
-  board.style.height = TOTAL_H + 'px';
-
-  for(let h = START_HOUR; h <= END_HOUR; h++){
-    const y = (h - START_HOUR) * HOUR_H;
-    const row = document.createElement('div');
-    row.className = 'hour-row';
-    row.style.top = y + 'px';
-    board.appendChild(row);
-
-    if(h < END_HOUR){
-      const half = document.createElement('div');
-      half.className = 'hour-row half';
-      half.style.top = (y + HOUR_H/2) + 'px';
-      board.appendChild(half);
-    }
-
-    const label = document.createElement('div');
-    label.className = 'hour-label';
-    label.style.top = y + 'px';
-    label.textContent = (h % 24) + ':00';
-    board.appendChild(label);
-  }
-
-  const clickArea = document.createElement('div');
-  clickArea.className = 'grid-click-area';
-  clickArea.id = 'clickArea';
-  board.appendChild(clickArea);
-
-  if(isToday(currentDate)){
-    const now = new Date();
-    const nowMin = now.getHours()*60 + now.getMinutes();
-    if(nowMin >= START_HOUR*60 && nowMin <= END_HOUR*60){
-      const line = document.createElement('div');
-      line.className = 'now-line';
-      line.style.top = minToY(nowMin) + 'px';
-      board.appendChild(line);
-    }
-  }
-
-  clickArea.addEventListener('pointerdown', onGridPointerDown);
-}
-
-function colorIndexFromHex(fill){
-  const idx = COLORS.findIndex(c => c.fill === fill);
-  return idx === -1 ? 0 : idx;
-}
-
-function renderTasks(){
-  document.querySelectorAll('.task').forEach(el => el.remove());
-  tasks.slice().sort((a,b)=>a.start-b.start).forEach(t => board.appendChild(buildTaskEl(t)));
-}
-
-function buildTaskEl(t){
-  const c = COLORS[colorIndexFromHex(t.color)] || COLORS[0];
-  const el = document.createElement('div');
-  el.className = 'task' + (t.done ? ' done' : '');
-  el.dataset.id = t.id;
-  el.style.top = minToY(t.start) + 'px';
-  el.style.height = Math.max((t.end - t.start) * PX_PER_MIN, 22) + 'px';
-  el.style.background = c.fill;
-  el.style.borderColor = c.border;
-
-  const topRow = document.createElement('div');
-  topRow.className = 'top-row';
-
-  const doneBox = document.createElement('input');
-  doneBox.type = 'checkbox';
-  doneBox.className = 'done-box';
-  doneBox.checked = !!t.done;
-  doneBox.addEventListener('pointerdown', e => e.stopPropagation());
-  doneBox.addEventListener('change', () => {
-    t.done = doneBox.checked;
-    el.classList.toggle('done', t.done);
-    saveTasks();
-  });
-
-  const swatchBtn = document.createElement('div');
-  swatchBtn.className = 'swatch-btn';
-  swatchBtn.style.background = c.fill;
-  swatchBtn.style.borderColor = c.border;
-  swatchBtn.addEventListener('pointerdown', e => e.stopPropagation());
-  swatchBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    togglePalette(el, t);
-  });
-
-  const textDiv = document.createElement('div');
-  textDiv.className = 'text';
-  textDiv.contentEditable = 'true';
-  textDiv.textContent = t.text || '';
-  textDiv.addEventListener('pointerdown', e => e.stopPropagation());
-  textDiv.addEventListener('blur', () => {
-    t.text = textDiv.textContent.trim();
-    saveTasks();
-  });
-  textDiv.addEventListener('keydown', e => {
-    if(e.key === 'Enter'){ e.preventDefault(); textDiv.blur(); }
-  });
-
-  const closeBtn = document.createElement('div');
-  closeBtn.className = 'close-btn';
-  closeBtn.textContent = '✕';
-  closeBtn.addEventListener('pointerdown', e => e.stopPropagation());
-  closeBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    tasks = tasks.filter(x => x.id !== t.id);
-    saveTasks();
-    renderTasks();
-  });
-
-  topRow.appendChild(doneBox);
-  topRow.appendChild(swatchBtn);
-  topRow.appendChild(textDiv);
-  topRow.appendChild(closeBtn);
-
-  const timeLabel = document.createElement('div');
-  timeLabel.className = 'time-label';
-  timeLabel.textContent = minToHHMM(t.start) + ' – ' + minToHHMM(t.end);
-
-  const resizeHandle = document.createElement('div');
-  resizeHandle.className = 'resize-handle';
-  resizeHandle.addEventListener('pointerdown', e => {
-    e.stopPropagation();
-    startResize(e, t, el);
-  });
-
-  el.appendChild(topRow);
-  el.appendChild(timeLabel);
-  el.appendChild(resizeHandle);
-
-  el.addEventListener('pointerdown', e => startMove(e, t, el));
-
-  return el;
-}
-
-function togglePalette(el, t){
-  const existing = el.querySelector('.palette');
-  if(existing){ existing.remove(); return; }
-  document.querySelectorAll('.palette').forEach(p => p.remove());
-  const pal = document.createElement('div');
-  pal.className = 'palette';
-  COLORS.forEach(c => {
-    const sw = document.createElement('div');
-    sw.className = 'sw';
-    sw.style.background = c.fill;
-    sw.style.borderColor = c.border;
-    sw.addEventListener('pointerdown', e => e.stopPropagation());
-    sw.addEventListener('click', e => {
-      e.stopPropagation();
-      t.color = c.fill;
-      saveTasks();
-      renderTasks();
-    });
-    pal.appendChild(sw);
-  });
-  el.appendChild(pal);
-}
-
-function startMove(e, t, el){
-  if(e.target.closest('.close-btn') || e.target.closest('.swatch-btn') || e.target.closest('.done-box') || e.target.closest('.resize-handle') || e.target.classList.contains('text')){
-    return;
-  }
-  e.preventDefault();
-  const boardRect = board.getBoundingClientRect();
-  const duration = t.end - t.start;
-  const startY = e.clientY;
-  const originStart = t.start;
-  el.classList.add('dragging');
-  el.setPointerCapture && el.setPointerCapture(e.pointerId);
-
-  function onMove(ev){
-    const dy = ev.clientY - startY;
-    const dMin = snap(dy / PX_PER_MIN);
-    let newStart = clampMin(originStart + dMin);
-    let newEnd = newStart + duration;
-    if(newEnd > END_HOUR*60){
-      newEnd = END_HOUR*60;
-      newStart = newEnd - duration;
-    }
-    t.start = newStart;
-    t.end = newEnd;
-    el.style.top = minToY(t.start) + 'px';
-    el.querySelector('.time-label').textContent = minToHHMM(t.start) + ' – ' + minToHHMM(t.end);
-  }
-  function onUp(){
-    el.classList.remove('dragging');
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    saveTasks();
-    renderTasks();
-  }
-  document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', onUp);
-}
-
-function startResize(e, t, el){
-  e.preventDefault();
-  const startY = e.clientY;
-  const originEnd = t.end;
-
-  function onMove(ev){
-    const dy = ev.clientY - startY;
-    const dMin = snap(dy / PX_PER_MIN);
-    let newEnd = Math.max(t.start + SNAP_MIN, clampMin(originEnd + dMin));
-    t.end = newEnd;
-    el.style.height = Math.max((t.end - t.start) * PX_PER_MIN, 22) + 'px';
-    el.querySelector('.time-label').textContent = minToHHMM(t.start) + ' – ' + minToHHMM(t.end);
-  }
-  function onUp(){
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    saveTasks();
-    renderTasks();
-  }
-  document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', onUp);
-}
-
-function onGridPointerDown(e){
-  if(e.target !== e.currentTarget) return;
-  const clickArea = e.currentTarget;
-  const rect = clickArea.getBoundingClientRect();
-  const startY = e.clientY - rect.top;
-  const startMinRaw = yToMin(startY);
-
-  const preview = document.createElement('div');
-  preview.className = 'task';
-  const c = COLORS[Math.floor(Math.random()*COLORS.length)];
-  preview.style.background = c.fill;
-  preview.style.borderColor = c.border;
-  preview.style.top = minToY(startMinRaw) + 'px';
-  preview.style.height = '22px';
-  board.appendChild(preview);
-
-  let finalStart = startMinRaw;
-  let finalEnd = startMinRaw + 30;
-
-  function onMove(ev){
-    const y = ev.clientY - rect.top;
-    const min = yToMin(y);
-    finalStart = Math.min(startMinRaw, min);
-    finalEnd = Math.max(startMinRaw, min);
-    if(finalEnd - finalStart < SNAP_MIN) finalEnd = finalStart + SNAP_MIN;
-    preview.style.top = minToY(finalStart) + 'px';
-    preview.style.height = Math.max((finalEnd - finalStart) * PX_PER_MIN, 22) + 'px';
-  }
-  function onUp(){
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    preview.remove();
-    if(finalEnd - finalStart < SNAP_MIN){
-      finalEnd = finalStart + 30;
-    }
-    const t = { id: uid(), start: finalStart, end: finalEnd, text: '', color: c.fill, done: false };
-    tasks.push(t);
-    saveTasks();
-    renderTasks();
-    const el = board.querySelector('.task[data-id="'+t.id+'"] .text');
-    if(el){ el.focus(); }
-  }
-  document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', onUp);
-}
-
-function addTaskDefault(){
-  const start = clampMin(snap(Math.max(new Date().getHours()*60 + new Date().getMinutes(), START_HOUR*60)));
-  const end = Math.min(start + 30, END_HOUR*60);
-  const c = COLORS[tasks.length % COLORS.length];
-  const t = { id: uid(), start, end, text: '', color: c.fill, done: false };
-  tasks.push(t);
-  saveTasks();
-  renderTasks();
-  const el = board.querySelector('.task[data-id="'+t.id+'"] .text');
-  if(el){ el.focus(); }
-}
-
-function showToast(msg){
-  toastEl.textContent = msg;
-  toastEl.classList.add('show');
-  setTimeout(() => toastEl.classList.remove('show'), 1800);
-}
-
-async function exportMarkdown(){
-  const key = fmtDateKey(currentDate);
-  const sorted = tasks.slice().sort((a,b)=>a.start-b.start);
-  let md = '## Daily Tasks — ' + key + '\n\n';
-  if(sorted.length === 0){
-    md += '_No tasks recorded._\n';
-  }else{
-    sorted.forEach(t => {
-      const box = t.done ? '[x]' : '[ ]';
-      const label = t.text && t.text.length ? t.text : '(untitled task)';
-      md += '- ' + box + ' ' + minToHHMM(t.start) + '–' + minToHHMM(t.end) + ' ' + label + '\n';
-    });
-  }
-
-  if(hasFileStore()){
-    const filePath = await window.routineStore.export(key, md);
-    if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(md).then(() => {
-        showToast('Exported to ' + filePath + ' & copied to clipboard');
-      }).catch(() => {
-        showToast('Exported to ' + filePath);
-      });
-    }else{
-      showToast('Exported to ' + filePath);
-    }
-    return;
-  }
-
-  const blob = new Blob([md], {type:'text/markdown'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = key + '-tasks.md';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(md).then(() => {
-      showToast('Exported — downloaded & copied to clipboard');
-    }).catch(() => {
-      showToast('Exported — downloaded (clipboard copy failed)');
-    });
-  }else{
-    showToast('Exported — downloaded');
-  }
-}
-
-async function goToDate(d){
-  currentDate = d;
-  await loadTasks();
-  renderHeading();
-  renderGrid();
-  renderTasks();
-}
-
-document.getElementById('prevDay').addEventListener('click', () => {
-  const d = new Date(currentDate);
-  d.setDate(d.getDate() - 1);
-  goToDate(d);
-});
-document.getElementById('nextDay').addEventListener('click', () => {
-  const d = new Date(currentDate);
-  d.setDate(d.getDate() + 1);
-  goToDate(d);
-});
-document.getElementById('todayBtn').addEventListener('click', () => goToDate(new Date()));
-datePicker.addEventListener('change', () => {
-  if(datePicker.value){
-    const [y,m,dd] = datePicker.value.split('-').map(Number);
-    goToDate(new Date(y, m-1, dd));
-  }
-});
-document.getElementById('addTaskBtn').addEventListener('click', addTaskDefault);
-document.getElementById('exportBtn').addEventListener('click', exportMarkdown);
-
-document.addEventListener('click', e => {
-  if(!e.target.closest('.swatch-btn') && !e.target.closest('.palette')){
-    document.querySelectorAll('.palette').forEach(p => p.remove());
-  }
-});
-
-setInterval(() => {
-  if(isToday(currentDate)){
-    renderGrid();
-    renderTasks();
-  }
-}, 60000);
-
-goToDate(new Date());
-</script>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">✓</div><div><strong>Daily Widget</strong><small data-i18n="brandTagline">轻一点，做重要的事</small></div></div>
+      <nav class="nav-group" aria-label="Main navigation">
+        <div class="nav-label" data-i18n="workspace">工作区</div>
+        <button class="nav-item active" data-view="today"><span class="nav-icon">◷</span><span data-i18n="todayPlan">今日计划</span></button>
+        <button class="nav-item" data-view="inbox"><span class="nav-icon">▣</span><span data-i18n="inbox">收集箱</span><span class="nav-count" id="inboxCount">0</span></button>
+      </nav>
+      <nav class="nav-group">
+        <div class="nav-label" data-i18n="rituals">习惯</div>
+        <button class="nav-item" data-view="focus"><span class="nav-icon">✦</span><span data-i18n="todayFocus">今日重点</span></button>
+        <button class="nav-item" id="reviewNav" data-view="review"><span class="nav-icon">↻</span><span data-i18n="dailyReview">日末回顾</span></button>
+      </nav>
+      <div class="sidebar-footer"><div id="syncStatus" class="sync-status">本地优先 · 未启用同步</div><button id="syncFolderBtn" class="subtle-btn" data-i18n="setSyncFolder">设置同步文件夹</button></div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="date-block">
+          <button class="icon-btn" id="previousDay" aria-label="Previous day">‹</button>
+          <div><h1 id="dateHeading">今天</h1><p id="dateSubheading"></p></div>
+          <button class="icon-btn" id="nextDay" aria-label="Next day">›</button>
+        </div>
+        <div class="top-actions">
+          <button class="toolbar-btn" id="todayButton" data-i18n="today">Today</button>
+          <button class="toolbar-btn" id="themeButton" title="切换主题">◐</button>
+          <button class="toolbar-btn" id="languageButton" title="Language">中 / EN</button>
+          <button class="toolbar-btn" id="syncButton"><span class="dot"></span><span data-i18n="sync">同步</span></button>
+          <button class="toolbar-btn primary" id="exportButton" data-i18n="exportMarkdown">导出 Markdown</button>
+        </div>
+      </header>
+      <section class="dashboard" id="dashboard" aria-label="Today summary">
+        <div class="card quick-card"><div class="quick-label" data-i18n="quickAdd">快速添加</div><div class="quick-row"><input id="quickInput" autocomplete="off" data-i18n-placeholder="quickPlaceholder" placeholder="例如：明天 9:30 跑步 45m"><button class="add-round" id="quickAdd" aria-label="Add task">＋</button></div></div>
+        <div class="card summary-card"><span data-i18n="nowNext">进行中 / 接下来</span><strong id="nowLabel">轻松开始</strong><div class="caption" id="nowCaption">今天留一点空间给自己</div></div>
+        <div class="card summary-card"><span data-i18n="todayDone">今日完成</span><strong id="progressLabel">0 / 0</strong><div class="focus-row" id="progressPips"><i class="focus-pip"></i><i class="focus-pip"></i><i class="focus-pip"></i></div></div>
+      </section>
+      <section class="workspace" id="workspace">
+        <div class="planner"><div class="section-heading"><h2 data-i18n="timeline">时间轴</h2><span data-i18n="timelineHint">空白处拖动即可排入日程 · 15 分钟吸附</span></div><div class="timeline-card"><div class="timeline-scroll"><div class="timeline" id="timeline"></div></div></div></div>
+        <aside class="side-panel">
+          <section class="panel"><div class="panel-title"><span data-i18n="todayFocus">今日重点</span><button id="clearFocus" data-i18n="manage">管理</button></div><div id="focusList" class="focus-list"></div></section>
+          <section class="panel"><div class="panel-title"><span id="inboxPanelTitle" data-i18n="inbox">收集箱</span><button id="newInbox" data-i18n="add">＋ 添加</button></div><div id="inboxContext" class="empty-state"></div><div id="inboxList" class="inbox-list"></div></section>
+          <section class="panel"><div class="panel-title"><span data-i18n="wrapUp">收尾</span><span id="reviewCount"></span></div><button class="review-btn" id="reviewButton" data-i18n="reviewAction">回顾未完成事项，安排明天</button></section>
+        </aside>
+      </section>
+      <section class="collection-view" id="collectionView" hidden></section>
+    </main>
+  </div>
+  <dialog id="taskDialog"><form class="modal" id="taskForm" method="dialog"><div class="modal-header"><h3 id="taskDialogTitle">新任务</h3><button class="modal-close" value="cancel" aria-label="Close">×</button></div><input id="taskId" type="hidden"><input id="taskDateOriginal" type="hidden"><div class="form-grid"><div class="field full"><label for="taskTitle">任务</label><input id="taskTitle" required placeholder="要完成什么？"></div><div class="field"><label for="taskDate">日期</label><input id="taskDate" type="date"></div><div class="field"><label for="taskCategory">分类</label><select id="taskCategory"><option value="personal">个人</option><option value="health">健康</option><option value="home">生活</option><option value="social">关系</option><option value="learning">学习</option><option value="errands">杂事</option></select></div><div class="field"><label for="taskStart">开始时间</label><input id="taskStart" type="time" step="900"></div><div class="field"><label for="taskEnd">结束时间</label><input id="taskEnd" type="time" step="900"></div><div class="field"><label for="taskRecurrence">重复</label><select id="taskRecurrence"><option value="none">不重复</option><option value="daily">每天</option><option value="weekdays">工作日</option><option value="weekly">每周</option></select></div><label class="toggle-field"><input id="taskFocus" type="checkbox"> 设为今日重点</label><div class="field full"><label for="taskUrl">链接</label><input id="taskUrl" type="url" placeholder="https://…"></div><div class="field full"><label for="taskNotes">备注</label><textarea id="taskNotes" placeholder="留给未来自己的补充说明"></textarea></div></div><div class="modal-actions"><button type="button" class="danger-btn" id="deleteTask">删除</button><div class="right"><button type="button" class="cancel-btn" id="cancelTask">取消</button><button class="save-btn" value="default">保存任务</button></div></div></form></dialog>
+  <dialog id="reviewDialog"><div class="modal"><div class="modal-header"><h3>日末回顾</h3><button class="modal-close" id="closeReview" aria-label="Close">×</button></div><p style="color:var(--muted);font-size:12px;margin:0 0 12px">未完成的任务不必成为负担，给它一个合适的去处。</p><div class="review-list" id="reviewList"></div></div></dialog>
+  <dialog id="exportDialog"><div class="modal"><div class="modal-header"><h3 id="exportDialogTitle">导出 Markdown</h3><button class="modal-close" id="closeExport" aria-label="Close">×</button></div><p id="exportDialogHint" style="color:var(--muted);font-size:12px;margin:0 0 16px">选择要导出的日期范围。</p><div class="form-grid export-range"><div class="field"><label id="exportStartLabel" for="exportStartDate">开始日期</label><input id="exportStartDate" type="date"></div><div class="field"><label id="exportEndLabel" for="exportEndDate">结束日期</label><input id="exportEndDate" type="date"></div></div><p class="form-error" id="exportError" role="alert" hidden></p><div class="modal-actions export-actions"><button class="cancel-btn" id="closeExportSecondary">取消</button><button class="save-btn" id="exportRangeButton">导出选定范围</button></div></div></dialog>
+  <div class="toast" id="toast"></div>
+  <script src="src/task-model.js"></script>
+  <script src="src/web-store.js"></script>
+  <script src="src/renderer.js"></script>
 </body>
 </html>

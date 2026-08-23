@@ -1,61 +1,82 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
-const fs = require('fs');
+const { TaskStore } = require('./src/task-store');
 
-const DATA_DIR = path.join(__dirname, 'data');
-const EXPORTS_DIR = path.join(__dirname, 'exports');
+let store;
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(EXPORTS_DIR)) fs.mkdirSync(EXPORTS_DIR, { recursive: true });
-
-function isValidDateKey(key) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(key);
-}
-
-function dataFilePath(dateKey) {
-  if (!isValidDateKey(dateKey)) throw new Error('Invalid date key: ' + dateKey);
-  return path.join(DATA_DIR, dateKey + '.json');
-}
-
-ipcMain.handle('tasks:load', (event, dateKey) => {
-  const file = dataFilePath(dateKey);
-  if (!fs.existsSync(file)) return [];
-  try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {
-    return [];
+function storageDirectories() {
+  if (!app.isPackaged) {
+    return { data: path.join(__dirname, 'data'), exports: path.join(__dirname, 'exports') };
   }
-});
-
-ipcMain.handle('tasks:save', (event, dateKey, tasks) => {
-  const file = dataFilePath(dateKey);
-  fs.writeFileSync(file, JSON.stringify(tasks, null, 2), 'utf8');
-  return true;
-});
-
-ipcMain.handle('tasks:export', (event, dateKey, markdown) => {
-  const file = path.join(EXPORTS_DIR, dateKey + '-tasks.md');
-  fs.writeFileSync(file, markdown, 'utf8');
-  return file;
-});
+  const root = path.join(app.getPath('userData'), 'Daily Widget');
+  return { data: path.join(root, 'data'), exports: path.join(root, 'exports') };
+}
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 480,
-    height: 760,
-    title: 'Daily Routine',
+    width: 1180,
+    height: 820,
+    minWidth: 760,
+    minHeight: 620,
+    title: 'Daily Widget',
+    backgroundColor: '#f6f7fb',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   });
   win.setMenuBarVisibility(false);
   win.loadFile('index.html');
 }
 
-app.whenReady().then(createWindow);
+function registerIpc() {
+  ipcMain.handle('app:init', () => store.init());
+  ipcMain.handle('tasks:day', (_, dateKey) => store.queryDate(dateKey));
+  ipcMain.handle('tasks:inbox', () => store.queryInbox());
+  ipcMain.handle('tasks:save', (_, task) => store.saveTask(task));
+  ipcMain.handle('tasks:update-occurrence', (_, id, dateKey, patch) => store.updateOccurrence(id, dateKey, patch));
+  ipcMain.handle('tasks:delete', (_, id) => store.deleteTask(id));
+  ipcMain.handle('tasks:inbox-move', (_, id) => store.moveToInbox(id));
+  ipcMain.handle('tasks:export', (_, dateKey) => store.exportDate(dateKey));
+  ipcMain.handle('tasks:export-week', (_, dateKey) => store.exportWeek(dateKey));
+  ipcMain.handle('tasks:export-range', (_, startDate, endDate) => store.exportRange(startDate, endDate));
+  ipcMain.handle('settings:get', () => store.getSettings());
+  ipcMain.handle('settings:update', (_, patch) => store.updateSettings(patch));
+  ipcMain.handle('sync:status', () => store.getStatus());
+  ipcMain.handle('sync:now', () => store.syncNow('manual'));
+  ipcMain.handle('sync:choose-folder', async (event) => {
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      title: 'Choose your shared Daily Widget folder',
+      buttonLabel: 'Use this folder',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true };
+    return { canceled: false, settings: store.setSyncFolder(result.filePaths[0]) };
+  });
+  ipcMain.handle('links:open', async (_, rawUrl) => {
+    let url;
+    try { url = new URL(rawUrl); } catch (_) { return false; }
+    if (!['http:', 'https:'].includes(url.protocol)) return false;
+    await shell.openExternal(url.href);
+    return true;
+  });
+}
 
-app.on('window-all-closed', () => {
-  app.quit();
+app.whenReady().then(() => {
+  const directories = storageDirectories();
+  store = new TaskStore({
+    rootDirectory: directories.data,
+    exportDirectory: directories.exports,
+    onRemoteChange: () => BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('sync:changed')),
+  });
+  registerIpc();
+  store.init();
+  const settings = store.getSettings();
+  if (settings.syncFolder) store.syncNow('startup');
+  createWindow();
 });
+
+app.on('window-all-closed', () => app.quit());
+app.on('before-quit', () => { if (store) store.dispose(); });

@@ -1,5 +1,13 @@
 node_modules/
 data/*.json
+data/tasks/
+data/backups/
+data/settings.json
+release/
 exports/*.md
 .omc/
+.omx/
+.codex/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
 .DS_Store

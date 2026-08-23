@@ -1,0 +1,8 @@
+#!/bin/zsh
+# Launch Daily Widget from any terminal with: routine
+
+set -e
+
+APP_DIR="${0:A:h}"
+cd "$APP_DIR"
+exec "$APP_DIR/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$APP_DIR" "$@"

@@ -1,42 +1,57 @@
 # Daily Widget
 
-A simple daily routine planner: drag to create colored task blocks on a time grid, edit them inline, and export the day as a Markdown checklist (handy for feeding into Obsidian or similar).
+Daily Widget is a local-first personal planner: a calm daily timeline, a lightweight inbox for loose thoughts, and an iPhone companion with a home-screen widget. Jira, repositories, tickets, and other work integrations are intentionally out of scope.
 
-There are two ways to use it — pick whichever fits:
+## Desktop and browser
 
-## Option 1: Just open the HTML (no install)
-
-Double-click `index.html`, or open `file:///path/to/daily-widget/index.html` in any browser. Nothing to install.
-
-Tasks are saved in the browser's local storage, scoped to that browser/profile.
-
-## Option 2: Run as a desktop app (keeps history as files on disk)
-
-Requires [Node.js](https://nodejs.org/) (includes npm).
+Requirements: Node.js 20+ and npm.
 
 ```bash
-git clone <this-repo-url>
-cd daily-widget
 npm install
 npm start
 ```
 
-This opens the same UI in its own window. Each day's tasks are saved to `data/YYYY-MM-DD.json`, so your history is kept forever as plain files — use the date picker / prev/next buttons in the app to look back at any previous day.
+The desktop app provides the full task and shared-folder sync experience. Opening `index.html` directly also works: it uses browser local storage and includes the full timeline, but browser security prevents direct folder sync.
 
-### Optional: run it with a single command
-
-To launch it by just typing `routine` in your terminal, drop a small script on your `PATH`, e.g.:
+After setup, use this from any terminal to launch the desktop app:
 
 ```bash
-cat > /opt/homebrew/bin/routine << 'EOF'
-#!/bin/zsh
-cd "/absolute/path/to/daily-widget" && exec ./node_modules/.bin/electron . "$@"
-EOF
-chmod +x /opt/homebrew/bin/routine
+routine
 ```
 
-Adjust the path and the target directory (e.g. `/usr/local/bin`) to your setup.
+## Daily workflow
 
-## Exporting
+- Drag on empty desktop time to create a task. Drag a task to move it and its bottom edge to resize it.
+- Quick add understands entries such as `明天 9:30 跑步 45m` or `tomorrow 9:30 run 45m`.
+- The Inbox is intentionally unscheduled: its tasks have no date/time and do not appear on a timeline until scheduled.
+- Click `+` for a default-time schedule, or drag an Inbox item directly to a precise point on the timeline.
+- Mark up to three Top 3 tasks, review unfinished one-off tasks at day end, and send them to tomorrow or Inbox.
+- Each task supports category, notes, HTTPS link, and daily / weekday / weekly repeat.
+- Switch the desktop language using `中 / EN`; the iOS app has the same preference in Settings.
 
-Click **Export to Obsidian** in the app. It writes a Markdown checklist to `exports/YYYY-MM-DD-tasks.md` (desktop app) or downloads it (browser version), and copies it to your clipboard.
+## JSON and sync
+
+Existing `data/YYYY-MM-DD.json` history remains untouched and is migrated automatically into independent records at `data/tasks/<task-id>.json`. This lets two devices merge edits to unrelated tasks safely.
+
+Choose **Set sync folder** and select a folder in iCloud Drive, Dropbox, or OneDrive. The shared folder has a simple structure:
+
+```text
+Daily Widget/
+  tasks/<task-id>.json
+```
+
+Sync is local-first and eventually consistent. It runs on request/startup, and desktop also watches the folder where the OS permits it. A same-task collision resolves to the newest `updatedAt`; desktop stores the losing record in `data/backups/conflicts/` rather than silently discarding it.
+
+## iPhone and widget
+
+Open [ios/DailyWidget.xcodeproj](ios/DailyWidget.xcodeproj) in Xcode 15+ after accepting the Xcode license. Select your Apple Developer team for both targets and confirm the included App Group. Details are in [ios/README.md](ios/README.md).
+
+The SwiftUI app uses normal scrolling plus long-press-and-drag creation/movement and a bottom resize handle. The WidgetKit widget stays glanceable: it shows today, can complete a task on iOS 17+, and opens the app for full editing.
+
+## Verification
+
+```bash
+npm test
+```
+
+The test suite covers quick input parsing, recurrence, deterministic merge behavior, legacy migration, Markdown export, and shared-folder sync records.
