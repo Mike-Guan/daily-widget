@@ -131,7 +131,7 @@ enum QuickInputParser {
     /// Drops lead-ins that are about the request, not the task: "帮我添加一个", "提醒我", "remind me to".
     static func stripFiller(_ text: String, mayBeEmpty: Bool = false) -> String {
         var value = text.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "，,、")))
-        for pattern in ["^(太讨厌了|烦死了|真烦|好烦|哎呀|哎|唉|天哪|对了|那个啥?|嗯+|呃+|我想想|差点忘了|糟了)[，,、\\s]*", "^(又得|还得|又要|还要|得要)", "^(请)?(帮我|给我|麻烦|我要|我想)?(添加|加上|加|新建|创建|安排|预约|预定|预订|订|记一下|记下|记|设置|设)(一个|一下|个|一条|条)?(日程|任务|提醒|待办)?[，,：:\\s]*", "^(请|帮我|给我|麻烦|我要|我想)[，,\\s]*", mayBeEmpty ? "^(在|于)[，,\\s]*$" : "^(的时候|的)[，,\\s]*", "^(提醒我|记得|别忘了|叫我|通知我)(一下)?(要)?[，,：:\\s]*", "^我+(要|得|想|需要)?(?=在|去|到|给|把|跟|和)", "^(please\\s+)?(add|create|schedule)\\s+(a\\s+)?(task|reminder|event)?\\s*(to|for|:)?\\s+", "^remind me\\s+(to\\s+)?"] {
+        for pattern in ["^(请)?(帮我|给我|麻烦|我要|我想)?(添加|加上|加|新建|创建|安排|预约|预定|预订|订|记一下|记下|记|设置|设)(一个|一下|个|一条|条)?(日程|任务|提醒|待办)?[，,：:\\s]*", "^(请|帮我|给我|麻烦|我要|我想)[，,\\s]*", mayBeEmpty ? "^(在|于)[，,\\s]*$" : "^(的时候|的)[，,\\s]*", "^(提醒我|记得|别忘了|叫我|通知我)(一下)?(要)?[，,：:\\s]*", "^我+(要|得|想|需要)?(?=在|去|到|给|把|跟|和)", "^(please\\s+)?(add|create|schedule)\\s+(a\\s+)?(task|reminder|event)?\\s*(to|for|:)?\\s+", "^remind me\\s+(to\\s+)?"] {
             if let match = firstMatch(pattern, in: value), let whole = match[0], !whole.isEmpty, mayBeEmpty || whole.count < value.count { value = String(value.dropFirst(whole.count)) }
         }
         return value.trimmingCharacters(in: .whitespaces)

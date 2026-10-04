@@ -11,7 +11,7 @@ enum TaskInterpreter {
     static let timeout: Duration = .seconds(4)
 
     /// The bundled model is slower to load than Apple's, so it gets longer.
-    static let bundledModelTimeout: Duration = .seconds(8)
+    static let bundledModelTimeout: Duration = .seconds(20)
 
     /// - Parameter allowBundledModel: false for Siri and the Action Button, which run in the
     ///   background with too little memory to load the bundled model.
@@ -77,6 +77,9 @@ enum TaskInterpreter {
     /// The engine that answered the most recent sentence: "apple", "bundled" or "rules". For the Added banner.
     @MainActor static var lastEngine = "rules"
 
+    /// What the engine was given and what it said, for the diagnostics row in Settings.
+    @MainActor static var lastReport = ""
+
     private static var appleModelAvailable: Bool {
         guard mode == "auto" else { return false }
         return appleModelPresent
@@ -94,21 +97,37 @@ enum TaskInterpreter {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), appleModelAvailable {
             let output = await firstResult(within: timeout) { await generate(text: text, english: english, now: now) }
-            await MainActor.run { lastEngine = output == nil ? "rules" : "apple" }
+            await MainActor.run { lastEngine = output == nil ? "rules" : "apple"; lastReport = "apple · \(text) → " + (output.map { "title=\($0.title) date=\($0.dateText ?? "") time=\($0.timeText ?? "") category=\($0.category ?? "")" } ?? "no answer within \(timeout)") }
             return output
         }
         #endif
         if mode != "rules", allowBundledModel, LocalModelInterpreter.isBundled {
-            let output = await firstResult(within: bundledModelTimeout) { await LocalModelInterpreter.output(for: text) }
-            await MainActor.run { lastEngine = output == nil ? "rules" : "bundled" }
+            let started = Date()
+            let run = await firstRun(within: bundledModelTimeout) { await LocalModelInterpreter.run(text) }
+            let output = run?.answer.flatMap(LocalModelPrompt.parse)
+            let detail: String
+            if let run {
+                detail = String(format: "load %.1fs, answer %.1fs · ", run.loadSeconds, run.answerSeconds) + (run.error ?? run.answer?.replacingOccurrences(of: "\n", with: " ") ?? "")
+            } else {
+                detail = String(format: "no answer within %.0fs (the model was probably still loading)", Date().timeIntervalSince(started))
+            }
+            await MainActor.run { lastEngine = output == nil ? "rules" : "bundled"; lastReport = "bundled · \(text) → \(detail)" }
             return output
         }
-        await MainActor.run { lastEngine = "rules" }
+        await MainActor.run { lastEngine = "rules"; lastReport = "rules · \(text) → mode=\(mode), bundled=\(LocalModelInterpreter.isBundled), allowBundled=\(allowBundledModel)" }
         return nil
     }
 
     /// The operation's result, or nil once the time is up. Does not wait for a slow operation to finish.
     private static func firstResult(within limit: Duration, _ operation: @escaping @Sendable () async -> ModelTaskOutput?) async -> ModelTaskOutput? {
+        let gate = ResumeOnce()
+        return await withCheckedContinuation { continuation in
+            Task { let value = await operation(); if await gate.claim() { continuation.resume(returning: value) } }
+            Task { try? await Task.sleep(for: limit); if await gate.claim() { continuation.resume(returning: nil) } }
+        }
+    }
+
+    private static func firstRun(within limit: Duration, _ operation: @escaping @Sendable () async -> LocalModelInterpreter.Run) async -> LocalModelInterpreter.Run? {
         let gate = ResumeOnce()
         return await withCheckedContinuation { continuation in
             Task { let value = await operation(); if await gate.claim() { continuation.resume(returning: value) } }

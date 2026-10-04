@@ -201,16 +201,15 @@ final class TaskUnderstandingTests: XCTestCase {
 
     func testComplainingSentence() throws {
         let text = "太讨厌了明天又得和mentor开组会"
-        // Rules alone drop the day, the complaint and "又得".
-        XCTAssertEqual(draft(text, nil), TaskDraft(title: "和mentor开组会", date: "2026-10-06", start: 540, end: 570, source: .rules, usesDefaultTime: true))
+        // Rules only take the day out. Feelings and filler are endless, so tidying the title is the model's job.
+        XCTAssertEqual(draft(text, nil), TaskDraft(title: "太讨厌了又得和mentor开组会", date: "2026-10-06", start: 540, end: 570, source: .rules, usesDefaultTime: true))
         // The bundled model's real answer: its title is accepted, its invented reminder is not.
         let output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"和mentor开组会","date":"明天","time":"","duration_minutes":0,"remind":true,"category":"social","repeat":"none"}"#))
         let result = draft(text, output)
         XCTAssertEqual(result.title, "和mentor开组会")
         XCTAssertEqual(result.category, "social")
         XCTAssertFalse(result.wantsReminder)
-        XCTAssertEqual(draft("烦死了周五还要交报告", nil).title, "交报告")
-        XCTAssertEqual(draft("哎呀差点忘了后天下午三点要去接孩子", nil).title, "要去接孩子")
+        XCTAssertEqual(result.source, .model)
     }
 
     func testLocalModelGarbageIsIgnored() {

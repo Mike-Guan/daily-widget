@@ -11,7 +11,7 @@ struct DailyWidgetApp: App {
                 .environmentObject(store)
                 .onOpenURL { url in store.handleDeepLink(url) }
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { store.appBecameActive() }
+                    if phase == .active { store.appBecameActive(); TaskInterpreter.prewarm() }
                     else if phase == .background { store.appEnteredBackground(); LocalModelInterpreter.unload() }
                 }
         }

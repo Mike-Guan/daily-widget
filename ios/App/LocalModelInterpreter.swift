@@ -23,14 +23,30 @@ enum LocalModelInterpreter {
         Task.detached { await model.unload() }
     }
 
-    static func output(for text: String) async -> ModelTaskOutput? {
-        guard let model, let answer = try? await model.respond(instructions: LocalModelPrompt.instructions, prompt: text) else { return nil }
-        return LocalModelPrompt.parse(answer)
+    /// The model's raw answer, or why there is none. Loading (slow the first time) is reported separately from answering.
+    static func run(_ text: String) async -> Run {
+        guard let model else { return Run(answer: nil, error: "model files are not in the app bundle", loadSeconds: 0, answerSeconds: 0) }
+        let started = Date()
+        do { try await model.load() } catch { return Run(answer: nil, error: "load failed: \(error)", loadSeconds: Date().timeIntervalSince(started), answerSeconds: 0) }
+        let loaded = Date()
+        do {
+            let answer = try await model.respond(instructions: LocalModelPrompt.instructions, prompt: text)
+            return Run(answer: answer, error: nil, loadSeconds: loaded.timeIntervalSince(started), answerSeconds: Date().timeIntervalSince(loaded))
+        } catch {
+            return Run(answer: nil, error: "generation failed: \(error)", loadSeconds: loaded.timeIntervalSince(started), answerSeconds: Date().timeIntervalSince(loaded))
+        }
     }
     #else
     static var isBundled: Bool { false }
     static func prewarm() {}
     static func unload() {}
-    static func output(for text: String) async -> ModelTaskOutput? { nil }
+    static func run(_ text: String) async -> Run { Run(answer: nil, error: "the bundled model does not run in the simulator", loadSeconds: 0, answerSeconds: 0) }
     #endif
+
+    struct Run: Sendable {
+        var answer: String?
+        var error: String?
+        var loadSeconds: TimeInterval
+        var answerSeconds: TimeInterval
+    }
 }
