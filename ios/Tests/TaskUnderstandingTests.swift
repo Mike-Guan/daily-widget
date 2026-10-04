@@ -35,9 +35,9 @@ final class TaskUnderstandingTests: XCTestCase {
     }
 
     func testInventedTitleIsRejected() {
-        XCTAssertEqual(draft("周末买牛奶", ModelTaskOutput(title: "购买乳制品")).title, "周末买牛奶")
-        XCTAssertEqual(draft("周末买牛奶", ModelTaskOutput(title: "购买乳制品")).source, .rules)
-        XCTAssertEqual(draft("周末买牛奶", ModelTaskOutput(title: "买牛奶")).title, "买牛奶")
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).title, "有空买牛奶")
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).source, .rules)
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "买牛奶")).title, "买牛奶")
     }
 
     func testInvalidModelFieldsFallBackOneByOne() {
@@ -136,6 +136,31 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertFalse(draft("有一点事想和你说", nil).isScheduled)
         XCTAssertFalse(draft("买3个苹果", nil).isScheduled)
         XCTAssertFalse(draft("整理照片", nil).isScheduled)
+    }
+
+    // MARK: Everyday sentences, rules only
+
+    func testEverydaySentences() {
+        func check(_ text: String, _ title: String, _ date: String?, _ start: Int?, _ end: Int?, recurrence: String = "none", reminder: Bool = false, defaultTime: Bool = false, line: UInt = #line) {
+            let result = draft(text, nil)
+            XCTAssertEqual(result, TaskDraft(title: title, date: date, start: start, end: end, recurrence: recurrence, source: .rules, wantsReminder: reminder, usesDefaultTime: defaultTime), text, line: line)
+        }
+        check("下周三上午十点和客户开会一个半小时", "和客户开会", "2026-10-14", 600, 690)
+        check("周五晚上和老王吃饭", "和老王吃饭", "2026-10-09", 1140, 1170, defaultTime: true)
+        check("后天早上七点半提醒我去机场", "去机场", "2026-10-07", 450, 480, reminder: true)
+        check("每天早上七点跑步", "跑步", "2026-10-05", 420, 450, recurrence: "daily")
+        check("每周五下午四点交周报", "交周报", "2026-10-09", 960, 990, recurrence: "weekly")
+        check("工作日上午九点半站会15分钟", "站会", "2026-10-05", 570, 585, recurrence: "weekdays")
+        check("买牛奶", "买牛奶", nil, nil, nil)
+        check("今晚八点看电影两个小时", "看电影", "2026-10-05", 1200, 1320)
+        check("明天上午9点到11点写方案", "写方案", "2026-10-06", 540, 660)
+        check("明天下午两点到四点半面试", "面试", "2026-10-06", 840, 990)
+        check("tomorrow 9:00-10:30 standup", "standup", "2026-10-06", 540, 630)
+        check("晚上十点一刻给爸爸打电话提醒我", "给爸爸打电话", "2026-10-05", 1335, 1365, reminder: true)
+        check("十二月二十五号圣诞晚餐晚上七点", "圣诞晚餐", "2026-12-25", 1140, 1170)
+        check("周末大扫除", "大扫除", "2026-10-10", 540, 570, defaultTime: true)
+        check("月底提醒我交房租", "交房租", "2026-10-31", 540, 570, reminder: true, defaultTime: true)
+        check("call mom tomorrow morning", "call mom", "2026-10-06", 480, 510, defaultTime: true)
     }
 
     // MARK: Date phrases resolved in code

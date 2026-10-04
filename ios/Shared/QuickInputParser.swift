@@ -13,6 +13,10 @@ enum QuickInputParser {
         var hasExplicitTime: Bool
         /// The day that was named, kept even when there is no time and the task goes to the Inbox.
         var day: String? = nil
+        /// none / daily / weekdays / weekly, from "每天", "工作日", "每周五", "every week".
+        var recurrence = "none"
+        /// Only a part of the day was said ("晚上"), so a usual time for it was filled in.
+        var assumedTime = false
 
         static func == (lhs: Result, rhs: Result) -> Bool {
             lhs.date == rhs.date && lhs.start == rhs.start && lhs.end == rhs.end && lhs.title == rhs.title && lhs.duration == rhs.duration && lhs.hasExplicitTime == rhs.hasExplicitTime
@@ -32,7 +36,26 @@ enum QuickInputParser {
         remainder = stripFiller(remainder)
 
         var day: Date?
-        if let match = firstMatch("^(今晚|tonight\\b)\\s*", in: remainder) {
+        var recurrence = "none"
+        func remove(_ phrase: String) {
+            guard let range = remainder.range(of: phrase, options: .caseInsensitive) else { return }
+            remainder = join(stripFiller(String(remainder[..<range.lowerBound]), mayBeEmpty: true), stripFiller(String(remainder[range.upperBound...]), mayBeEmpty: true))
+        }
+        if let match = firstMatch("每个?(?:周|星期|礼拜)([一二三四五六日天])", in: remainder), let whole = match[0], let weekday = match[1] {
+            recurrence = "weekly"
+            day = DatePhrase.resolve("周" + weekday, now: baseDate)
+            remove(whole)
+        } else if let whole = firstMatch("(每个?)?工作日(每天)?|every weekday|on weekdays|weekdays", in: remainder)?[0] {
+            recurrence = "weekdays"; remove(whole)
+        } else if let whole = firstMatch("每天|每日|天天|every day|everyday|daily", in: remainder)?[0] {
+            recurrence = "daily"; remove(whole)
+        } else if let whole = firstMatch("每个?(?:周|星期|礼拜)|every week|weekly", in: remainder)?[0] {
+            recurrence = "weekly"; remove(whole)
+        }
+
+        if day != nil {
+            // "每周五" already named the day.
+        } else if let match = firstMatch("^(今晚|tonight\\b)\\s*", in: remainder) {
             // "今晚 8点" keeps its evening meaning for the time step below.
             day = baseDate
             remainder = "晚上" + String(remainder.dropFirst(match[0]!.count))
@@ -58,17 +81,44 @@ enum QuickInputParser {
         }
 
         var start: Int?
+        var assumedTime = false
+        var saidDuration = duration != 30 || firstMatch("(分钟|小时|min|hour|h|m)\\s*$", in: original) != nil
+        func takeRangeEnd(from startMinute: Int, _ rest: String) -> String {
+            // "9点到11点", "9:00-10:30", "3pm to 5pm"
+            guard !saidDuration, let connector = firstMatch("^\\s*(到|至|-|—|–|~|～|to\\b|until\\b)\\s*", in: rest)?[0], let (endMinute, after) = parseTime(String(rest.dropFirst(connector.count)), strict: true) else { return rest }
+            var end = clampMinute(endMinute)
+            if end <= startMinute, end + 12 * 60 > startMinute, end + 12 * 60 <= 24 * 60 { end += 12 * 60 }
+            guard end > startMinute else { return rest }
+            duration = min(8 * 60, end - startMinute)
+            saidDuration = true
+            return after
+        }
         if let (minute, rest) = parseTime(remainder) {
             start = clampMinute(minute)
-            remainder = rest.trimmingCharacters(in: .whitespaces)
+            remainder = takeRangeEnd(from: start!, rest).trimmingCharacters(in: .whitespaces)
         } else if let (minute, before, after) = timeAnywhere(in: remainder) {
             start = clampMinute(minute)
-            remainder = join(stripFiller(before, mayBeEmpty: true), stripFiller(after))
+            remainder = join(stripFiller(before, mayBeEmpty: true), stripFiller(takeRangeEnd(from: start!, after)))
+        } else if let (minute, whole) = partOfDay(in: remainder) {
+            // "周五晚上和老王吃饭": no clock time, so use a usual time for that part of the day.
+            start = minute
+            assumedTime = true
+            remove(whole)
         }
 
         remainder = stripFiller(remainder)
+        if let trailing = firstMatch("[，,\\s]*(记得)?提醒我(一下)?$", in: remainder)?[0], trailing.count < remainder.count { remainder = String(remainder.dropLast(trailing.count)) }
         let hasExplicitTime = start != nil
-        return Result(date: hasExplicitTime ? (day ?? baseDate).dayKey : nil, start: start, end: start.map { $0 + duration }, title: remainder.isEmpty ? original : remainder, duration: duration, hasExplicitTime: hasExplicitTime, day: day?.dayKey)
+        return Result(date: hasExplicitTime ? (day ?? baseDate).dayKey : nil, start: start, end: start.map { $0 + duration }, title: remainder.isEmpty ? original : remainder, duration: duration, hasExplicitTime: hasExplicitTime, day: day?.dayKey, recurrence: recurrence, assumedTime: assumedTime)
+    }
+
+    /// A part of the day said without a clock time, and the usual time used for it.
+    private static func partOfDay(in text: String) -> (Int, String)? {
+        let table: [(String, Int)] = [("早上|早晨|in the morning|this morning|morning", 8 * 60), ("上午", 10 * 60), ("中午|at noon|noon", 12 * 60), ("下午|in the afternoon|this afternoon|afternoon", 15 * 60), ("傍晚", 18 * 60), ("晚上|in the evening|this evening|evening", 19 * 60)]
+        for (pattern, minute) in table {
+            if let whole = firstMatch(pattern, in: text)?[0] { return (minute, whole) }
+        }
+        return nil
     }
 
     /// Minutes from midnight for a spoken time on its own ("下午三点", "3pm", "9:30"), or nil.
@@ -81,7 +131,7 @@ enum QuickInputParser {
     /// Drops lead-ins that are about the request, not the task: "帮我添加一个", "提醒我", "remind me to".
     static func stripFiller(_ text: String, mayBeEmpty: Bool = false) -> String {
         var value = text.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "，,、")))
-        for pattern in ["^(请)?(帮我|给我|麻烦|我要|我想)?(添加|加上|加|新建|创建|安排|预约|预定|预订|订|记一下|记下|记|设置|设)(一个|一下|个|一条|条)?(日程|任务|提醒|待办)?[，,：:\\s]*", "^(请|帮我|给我|麻烦|我要|我想)[，,\\s]*", mayBeEmpty ? "^(在|于)[，,\\s]*$" : "^(的时候|的)[，,\\s]*", "^(提醒我|记得|别忘了|叫我|通知我)(一下)?(要|去)?[，,：:\\s]*", "^我+(要|得|想|需要)?(?=在|去|到|给|把|跟|和)", "^(please\\s+)?(add|create|schedule)\\s+(a\\s+)?(task|reminder|event)?\\s*(to|for|:)?\\s+", "^remind me\\s+(to\\s+)?"] {
+        for pattern in ["^(请)?(帮我|给我|麻烦|我要|我想)?(添加|加上|加|新建|创建|安排|预约|预定|预订|订|记一下|记下|记|设置|设)(一个|一下|个|一条|条)?(日程|任务|提醒|待办)?[，,：:\\s]*", "^(请|帮我|给我|麻烦|我要|我想)[，,\\s]*", mayBeEmpty ? "^(在|于)[，,\\s]*$" : "^(的时候|的)[，,\\s]*", "^(提醒我|记得|别忘了|叫我|通知我)(一下)?(要)?[，,：:\\s]*", "^我+(要|得|想|需要)?(?=在|去|到|给|把|跟|和)", "^(please\\s+)?(add|create|schedule)\\s+(a\\s+)?(task|reminder|event)?\\s*(to|for|:)?\\s+", "^remind me\\s+(to\\s+)?"] {
             if let match = firstMatch(pattern, in: value), let whole = match[0], !whole.isEmpty, mayBeEmpty || whole.count < value.count { value = String(value.dropFirst(whole.count)) }
         }
         return value.trimmingCharacters(in: .whitespaces)
@@ -235,6 +285,15 @@ enum DatePhrase {
         for (pattern, offset) in [("^(今天|today\\b)\\s*", 0), ("^(明天|tomorrow\\b)\\s*", 1), ("^(大后天)\\s*", 3), ("^(后天|後天|the day after tomorrow\\b)\\s*", 2)] {
             if let found = match(pattern), let date = day(offset) { return (date, rest(found)) }
         }
+
+        // 周末 = this Saturday (today if it already is the weekend); 下周末 = next week's Saturday; 月底 = last day of the month.
+        if let found = match("^(这个?|本)?周末\\s*|^this weekend\\b\\s*") {
+            let weekday = calendar.component(.weekday, from: today)
+            if weekday == 1 || weekday == 7 { return (today, rest(found)) }
+            if let date = weekdayDate(7, modifier: "这", today: today) { return (date, rest(found)) }
+        }
+        if let found = match("^下个?周末\\s*|^next weekend\\b\\s*"), let date = weekdayDate(7, modifier: "下", today: today) { return (date, rest(found)) }
+        if let found = match("^(这个?|本)?月底\\s*|^(at )?the end of (the|this) month\\b\\s*"), let range = calendar.range(of: .day, in: .month, for: today), let date = calendar.date(bySetting: .day, value: range.count, of: today) { return (calendar.startOfDay(for: date), rest(found)) }
 
         // 10月23日 / 十月二十三号 / 2027年1月5日; a day that has passed this year means next year.
         if let found = match("^(?:(\\d{4})\\s*年\\s*)?(\\d{1,2}|[\(numerals)]+)\\s*月\\s*(\\d{1,2}|[\(numerals)]+)\\s*[日号號]?\\s*"), let month = QuickInputParser.chineseNumber(found[2] ?? ""), let dayNumber = QuickInputParser.chineseNumber(found[3] ?? ""), let date = monthDay(month: month, day: dayNumber, year: found[1].flatMap(Int.init), today: today) { return (date, rest(found)) }

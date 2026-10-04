@@ -92,8 +92,10 @@ final class QuickInputParserTests: XCTestCase {
 
     func testLeadingNumberThatIsNotATimeStaysInTheTitle() {
         XCTAssertEqual(parse("3个苹果"), Result(date: nil, start: nil, end: nil, title: "3个苹果", duration: 30, hasExplicitTime: false))
-        XCTAssertEqual(parse("下午牙医").title, "下午牙医")
-        XCTAssertNil(parse("下午牙医").start)
+        // A part of the day without a clock time gets a usual time and is marked as assumed.
+        XCTAssertEqual(parse("下午牙医").title, "牙医")
+        XCTAssertEqual(parse("下午牙医").start, 900)
+        XCTAssertTrue(parse("下午牙医").assumedTime)
     }
 
     func testMonthBoundary() {

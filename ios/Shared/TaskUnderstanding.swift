@@ -76,7 +76,7 @@ enum TaskUnderstanding {
 
     static func draft(text: String, model: ModelTaskOutput?, now: Date = .now) -> TaskDraft {
         let rules = QuickInputParser.parse(text, now: now)
-        var draft = TaskDraft(title: rules.title, date: rules.date, start: rules.start, end: rules.end)
+        var draft = TaskDraft(title: rules.title, date: rules.date, start: rules.start, end: rules.end, recurrence: rules.recurrence, usesDefaultTime: rules.assumedTime)
         var day = rules.day
         var usedModel = false
 
@@ -84,14 +84,15 @@ enum TaskUnderstanding {
             // The model may only make the title tidier than the rules did, never put the lead-in or the date back.
             if let title = groundedTitle(model.title, in: text), title.count <= rules.title.count, title != rules.title { draft.title = title; usedModel = true }
             if let category = model.category, categories.contains(category), category != "personal" { draft.category = category; usedModel = true }
-            if let recurrence = model.recurrence, recurrences.contains(recurrence), recurrence != "none" { draft.recurrence = recurrence; usedModel = true }
+            if rules.recurrence == "none", let recurrence = model.recurrence, recurrences.contains(recurrence), recurrence != "none" { draft.recurrence = recurrence; usedModel = true }
 
             if day == nil, let phrase = model.dateText, contains(text, phrase), let resolved = DatePhrase.resolve(phrase, now: now) { day = resolved.dayKey; usedModel = true }
-            if !rules.hasExplicitTime, let phrase = model.timeText, contains(text, phrase), let minute = QuickInputParser.minute(fromTimePhrase: phrase) {
+            if !rules.hasExplicitTime || rules.assumedTime, let phrase = model.timeText, contains(text, phrase), let minute = QuickInputParser.minute(fromTimePhrase: phrase) {
                 let duration = model.durationMinutes.flatMap { (15...8 * 60).contains($0) ? snap($0) : nil } ?? rules.duration
                 draft.date = day ?? now.dayKey
                 draft.start = minute
                 draft.end = minute + max(15, duration)
+                draft.usesDefaultTime = false
                 usedModel = true
             }
         }
