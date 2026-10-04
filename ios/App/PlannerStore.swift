@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import WidgetKit
+import UIKit
 
 @MainActor
 final class PlannerStore: ObservableObject {
@@ -16,6 +17,9 @@ final class PlannerStore: ObservableObject {
     private let deviceID: String
     private let fileManager = FileManager.default
     private let repository: TaskRepository
+    /// Shared with the extensions so the sync folder is not tied to the app's own defaults.
+    private let sharedDefaults = UserDefaults(suiteName: WidgetSnapshot.appGroupID) ?? .standard
+    private static let bookmarkKey = "syncFolderBookmark"
 
     init() {
         let defaults = UserDefaults.standard
@@ -82,35 +86,53 @@ final class PlannerStore: ObservableObject {
 
     func setSyncFolder(_ url: URL) {
         syncFolderURL = url
-        if let bookmark = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil) {
-            UserDefaults.standard.set(bookmark, forKey: "syncFolderBookmark")
-        }
+        storeBookmark(for: url)
         syncNow()
     }
 
     @discardableResult
     func syncNow() -> Bool {
-        guard let folder = syncFolderURL else { syncState = .localOnly; return false }
-        guard syncState != .syncing else { return true }
+        guard syncFolderURL != nil else { syncState = .localOnly; return false }
+        Task { await performSync() }
+        return true
+    }
+
+    /// Called when the app becomes active: pick up widget/Siri changes from disk, then sync.
+    func appBecameActive() {
+        reload()
+        syncNow()
+    }
+
+    /// Called when the app leaves the foreground: push local changes out while iOS still gives us time.
+    func appEnteredBackground() {
+        guard syncFolderURL != nil else { return }
+        var identifier = UIBackgroundTaskIdentifier.invalid
+        identifier = UIApplication.shared.beginBackgroundTask(withName: "DailyWidgetSync") {
+            UIApplication.shared.endBackgroundTask(identifier)
+            identifier = .invalid
+        }
+        Task {
+            await performSync()
+            if identifier != .invalid { UIApplication.shared.endBackgroundTask(identifier); identifier = .invalid }
+        }
+    }
+
+    private func performSync() async {
+        guard let folder = syncFolderURL, syncState != .syncing else { return }
         syncState = .syncing
         let repository = repository
         let language = language
-        Task { [weak self] in
-            do {
-                let merged = try await Task.detached(priority: .userInitiated) {
-                    // Merge against what is on disk now, and fold the result back in with another
-                    // read-modify-write, so a widget or Siri change made meanwhile is not lost.
-                    let synced = try Self.synchronize(localRecords: try repository.load(), folder: folder)
-                    return try repository.mutate(language: language) { $0 = TaskRepository.merge($0, with: synced) }
-                }.value
-                guard let self else { return }
-                records = merged
-                syncState = .synced(.now)
-            } catch {
-                self?.syncState = .failure(error.localizedDescription)
-            }
+        do {
+            records = try await Task.detached(priority: .userInitiated) {
+                // Merge against what is on disk now, and fold the result back in with another
+                // read-modify-write, so a widget or Siri change made meanwhile is not lost.
+                let synced = try Self.synchronize(localRecords: try repository.load(), folder: folder)
+                return try repository.mutate(language: language) { $0 = TaskRepository.merge($0, with: synced) }
+            }.value
+            syncState = .synced(.now)
+        } catch {
+            syncState = .failure(error.localizedDescription)
         }
-        return true
     }
 
     func handleDeepLink(_ url: URL) {
@@ -124,10 +146,24 @@ final class PlannerStore: ObservableObject {
         catch { syncState = .failure(error.localizedDescription) }
     }
 
+    private func storeBookmark(for url: URL) {
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        if let bookmark = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil) {
+            sharedDefaults.set(bookmark, forKey: Self.bookmarkKey)
+        }
+    }
+
     private func restoreSyncFolder() {
-        guard let bookmark = UserDefaults.standard.data(forKey: "syncFolderBookmark") else { return }
+        // Earlier builds kept the bookmark in the app's own defaults; move it to the App Group once.
+        if sharedDefaults.data(forKey: Self.bookmarkKey) == nil, let legacy = UserDefaults.standard.data(forKey: Self.bookmarkKey) {
+            sharedDefaults.set(legacy, forKey: Self.bookmarkKey)
+            if sharedDefaults !== UserDefaults.standard { UserDefaults.standard.removeObject(forKey: Self.bookmarkKey) }
+        }
+        guard let bookmark = sharedDefaults.data(forKey: Self.bookmarkKey) else { return }
         var stale = false
         syncFolderURL = try? URL(resolvingBookmarkData: bookmark, options: .withoutUI, relativeTo: nil, bookmarkDataIsStale: &stale)
+        if stale, let url = syncFolderURL { storeBookmark(for: url) }
     }
 
     private func refreshWidgetSnapshot() { repository.refreshSnapshot(tasks: records, language: language) }
