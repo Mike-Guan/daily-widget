@@ -35,10 +35,13 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(result.source, .model)
     }
 
-    func testInventedTitleIsRejected() {
-        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).title, "有空买牛奶")
-        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).source, .rules)
+    func testModelTitleIsUsedAsGiven() {
+        // Mike's choice: trust the model's title, even when it rewords.
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).title, "购买乳制品")
         XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "买牛奶")).title, "买牛奶")
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "  ")).title, "有空买牛奶")
+        // Handing the whole sentence back is not a title; the rules' title stands.
+        XCTAssertEqual(draft("明天下午三点牙医。", ModelTaskOutput(title: "明天下午三点牙医")).title, "牙医")
     }
 
     func testInvalidModelFieldsFallBackOneByOne() {
@@ -191,12 +194,12 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(result.start, 19 * 60 + 30)
         XCTAssertEqual(result.category, "social")
 
-        // A tidier title that is not a contiguous part of the sentence is rejected.
+        // A reworded title is taken as given.
         output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"去看牙","date":"下周二","time":"下午两点左右","duration_minutes":0,"remind":false,"category":"health","repeat":"none"}"#))
         result = draft("嗯我想想下周二下午吧两点左右去看一下牙", output)
         XCTAssertEqual(result.date, "2026-10-13")
         XCTAssertEqual(result.category, "health")
-        XCTAssertFalse(result.title.isEmpty)
+        XCTAssertEqual(result.title, "去看牙")
     }
 
     func testComplainingSentence() throws {
@@ -223,9 +226,6 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(rulesOnly.start, 660)
         XCTAssertEqual(rulesOnly.end, 720)
         XCTAssertEqual(rulesOnly.title, "哎已经很累了但是还得和组里开组会")
-        // Characters that were never said are still refused.
-        XCTAssertNil(TaskUnderstanding.groundedTitle("和团队开会", in: text))
-        XCTAssertNil(TaskUnderstanding.groundedTitle("会开", in: "开会"))
     }
 
     func testLocalModelGarbageIsIgnored() {

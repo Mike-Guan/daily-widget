@@ -81,8 +81,7 @@ enum TaskUnderstanding {
         var usedModel = false
 
         if let model {
-            // The model may only make the title tidier than the rules did, never put the lead-in or the date back.
-            if let title = groundedTitle(model.title, in: text), title.count <= rules.title.count, title != rules.title { draft.title = title; usedModel = true }
+            if let title = modelTitle(model.title, for: text) { draft.title = title; usedModel = true }
             if let category = model.category, categories.contains(category), category != "personal" { draft.category = category; usedModel = true }
             if rules.recurrence == "none", let recurrence = model.recurrence, recurrences.contains(recurrence), recurrence != "none" { draft.recurrence = recurrence; usedModel = true }
 
@@ -132,21 +131,13 @@ enum TaskUnderstanding {
         return table.first { $0.1.contains { lowered.contains($0) } }?.0
     }
 
-    /// The model may tidy the title ("记一下明天牙医" → "牙医") but may not invent one.
-    /// It may also drop words from the middle ("和组里开一个小时的组会" → "和组里开会"), so the test is
-    /// that every character comes from the sentence, in order.
-    static func groundedTitle(_ candidate: String, in text: String) -> String? {
+    /// The model's title is used as it is. The one exception is a model that hands the whole
+    /// sentence back, which is no title at all; then the rules' title stands.
+    static func modelTitle(_ candidate: String, for text: String) -> String? {
         let title = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard title.count >= 2, title.count <= 80, isSubsequence(title, of: text) else { return nil }
-        return title
-    }
-
-    static func isSubsequence(_ part: String, of text: String) -> Bool {
-        func normalized(_ value: String) -> [Character] { Array(value.lowercased().filter { !$0.isWhitespace }) }
-        let needle = normalized(part), haystack = normalized(text)
-        var index = 0
-        for character in haystack where index < needle.count && character == needle[index] { index += 1 }
-        return index == needle.count
+        guard !title.isEmpty, title.count <= 80 else { return nil }
+        func normalized(_ value: String) -> String { value.lowercased().filter { !$0.isWhitespace && !"。.!！,，".contains($0) } }
+        return normalized(title) == normalized(text) ? nil : title
     }
 
     private static func snap(_ minute: Int) -> Int { Int((Double(minute) / 15).rounded()) * 15 }
