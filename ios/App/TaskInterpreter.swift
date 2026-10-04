@@ -22,6 +22,7 @@ enum TaskInterpreter {
 
     /// Why the model is or is not in use, for Settings.
     static func status(english: Bool) -> String {
+        if mode == "rules" { return english ? "Rules only. No model is used." : "只用规则解析，不使用任何模型。" }
         if !appleModelAvailable, LocalModelInterpreter.isBundled {
             return english ? "Using the model bundled with the app (Qwen3.5-0.8B). It runs on this iPhone and does not need Apple Intelligence." : "正在使用 App 自带的本机模型（Qwen3.5-0.8B）理解，不联网，也不需要开启 Apple 智能。"
         }
@@ -60,6 +61,7 @@ enum TaskInterpreter {
 
     /// Loads the model ahead of the first request so the user does not wait for it.
     static func prewarm() {
+        if mode == "rules" { return }
         if !appleModelAvailable { LocalModelInterpreter.prewarm(); return }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
@@ -68,7 +70,19 @@ enum TaskInterpreter {
         #endif
     }
 
+    /// Which engine may be used: "auto" (Apple's model, else the bundled one), "bundled", or "rules".
+    static let modeKey = "understandingMode"
+    static var mode: String { UserDefaults.standard.string(forKey: modeKey) ?? "auto" }
+
+    /// The engine that answered the most recent sentence: "apple", "bundled" or "rules". For the Added banner.
+    @MainActor static var lastEngine = "rules"
+
     private static var appleModelAvailable: Bool {
+        guard mode == "auto" else { return false }
+        return appleModelPresent
+    }
+
+    private static var appleModelPresent: Bool {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability { return true }
         #endif
@@ -79,12 +93,17 @@ enum TaskInterpreter {
     private static func modelOutput(for text: String, english: Bool, now: Date, allowBundledModel: Bool) async -> ModelTaskOutput? {
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), appleModelAvailable {
-            return await firstResult(within: timeout) { await generate(text: text, english: english, now: now) }
+            let output = await firstResult(within: timeout) { await generate(text: text, english: english, now: now) }
+            await MainActor.run { lastEngine = output == nil ? "rules" : "apple" }
+            return output
         }
         #endif
-        if allowBundledModel, LocalModelInterpreter.isBundled {
-            return await firstResult(within: bundledModelTimeout) { await LocalModelInterpreter.output(for: text) }
+        if mode != "rules", allowBundledModel, LocalModelInterpreter.isBundled {
+            let output = await firstResult(within: bundledModelTimeout) { await LocalModelInterpreter.output(for: text) }
+            await MainActor.run { lastEngine = output == nil ? "rules" : "bundled" }
+            return output
         }
+        await MainActor.run { lastEngine = "rules" }
         return nil
     }
 
