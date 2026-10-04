@@ -212,6 +212,22 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(result.source, .model)
     }
 
+    func testModelTitleThatDropsWordsFromTheMiddleIsAccepted() throws {
+        // Recorded on Mike's iPhone: the answer was right but the title was rejected for not being one contiguous piece.
+        let text = "哎已经很累了但是后天还得和组里开一个小时的组会在上午11:00"
+        let output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"和组里开会","date":"后天","time":"上午11:00","duration_minutes":60,"remind":false,"category":"personal","repeat":"none"}"#))
+        XCTAssertEqual(draft(text, output), TaskDraft(title: "和组里开会", date: "2026-10-07", start: 660, end: 720, source: .model))
+        // Without a model the rules still get the day, the time and the length.
+        let rulesOnly = draft(text, nil)
+        XCTAssertEqual(rulesOnly.date, "2026-10-07")
+        XCTAssertEqual(rulesOnly.start, 660)
+        XCTAssertEqual(rulesOnly.end, 720)
+        XCTAssertEqual(rulesOnly.title, "哎已经很累了但是还得和组里开组会")
+        // Characters that were never said are still refused.
+        XCTAssertNil(TaskUnderstanding.groundedTitle("和团队开会", in: text))
+        XCTAssertNil(TaskUnderstanding.groundedTitle("会开", in: "开会"))
+    }
+
     func testLocalModelGarbageIsIgnored() {
         XCTAssertNil(LocalModelPrompt.parse("好的，我来帮你。"))
         XCTAssertNil(LocalModelPrompt.parse("{not json}"))

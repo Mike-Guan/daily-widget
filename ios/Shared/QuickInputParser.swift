@@ -65,24 +65,26 @@ enum QuickInputParser {
         } else if let (found, before, after) = DatePhrase.anywhere(in: remainder, now: baseDate) {
             // Spoken sentences put the day in the middle: "帮我预约10月23号提醒我…".
             day = found
-            remainder = join(stripFiller(before, mayBeEmpty: true), stripFiller(after))
+            remainder = join(dropTrailingPreposition(stripFiller(before, mayBeEmpty: true)), stripFiller(after))
         }
 
         var duration = 30
-        // "一个半小时" / "2个半小时"
-        if let match = firstMatch("(\\d+|[零一二三四五六七八九十两]+)\\s*个半\\s*小时\\s*$", in: remainder), let hours = chineseNumber(match[1] ?? "") {
+        var saidDuration = false
+        // A length anywhere in the sentence: "一个半小时", "开一个小时的组会", "45分钟", "for 2 hours".
+        if let match = firstMatch("(?:for\\s+)?(\\d+|[零一二三四五六七八九十两]+)\\s*个半\\s*小时(的)?", in: remainder), let whole = match[0], let hours = chineseNumber(match[1] ?? "") {
             duration = max(15, min(8 * 60, hours * 60 + 30))
-            remainder = String(remainder.dropLast(match[0]!.count)).trimmingCharacters(in: .whitespaces)
-        } else if let match = firstMatch("(\\d+(?:\\.5)?|半|[零一二三四五六七八九十两]+)\\s*个?\\s*(m|mins?|minutes?|分钟|h|hrs?|hours?|小时)\\s*$", in: remainder), let amount = durationAmount(match[1] ?? "") {
+            saidDuration = true
+            remove(whole)
+        } else if let match = firstMatch("(?:for\\s+)?(\\d+(?:\\.5)?|半|[零一二三四五六七八九十两]+)\\s*个?\\s*(mins?\\b|minutes?\\b|分钟|hrs?\\b|hours?\\b|小时|(?<=\\d)[mh]\\b)(的)?", in: remainder), let whole = match[0], let amount = durationAmount(match[1] ?? "") {
             let unit = (match[2] ?? "").lowercased()
             let minutes = unit.hasPrefix("h") || unit == "小时" ? amount * 60 : amount
             duration = max(15, min(8 * 60, Int((minutes / 15).rounded()) * 15))
-            remainder = String(remainder.dropLast(match[0]!.count)).trimmingCharacters(in: .whitespaces)
+            saidDuration = true
+            remove(whole)
         }
 
         var start: Int?
         var assumedTime = false
-        var saidDuration = duration != 30 || firstMatch("(分钟|小时|min|hour|h|m)\\s*$", in: original) != nil
         func takeRangeEnd(from startMinute: Int, _ rest: String) -> String {
             // "9点到11点", "9:00-10:30", "3pm to 5pm"
             guard !saidDuration, let connector = firstMatch("^\\s*(到|至|-|—|–|~|～|to\\b|until\\b)\\s*", in: rest)?[0], let (endMinute, after) = parseTime(String(rest.dropFirst(connector.count)), strict: true) else { return rest }
@@ -98,7 +100,7 @@ enum QuickInputParser {
             remainder = takeRangeEnd(from: start!, rest).trimmingCharacters(in: .whitespaces)
         } else if let (minute, before, after) = timeAnywhere(in: remainder) {
             start = clampMinute(minute)
-            remainder = join(stripFiller(before, mayBeEmpty: true), stripFiller(takeRangeEnd(from: start!, after)))
+            remainder = join(dropTrailingPreposition(stripFiller(before, mayBeEmpty: true)), stripFiller(takeRangeEnd(from: start!, after)))
         } else if let (minute, whole) = partOfDay(in: remainder) {
             // "周五晚上和老王吃饭": no clock time, so use a usual time for that part of the day.
             start = minute
@@ -157,6 +159,12 @@ enum QuickInputParser {
             index = text.index(after: index)
         }
         return nil
+    }
+
+    /// "…开组会在" + (time removed) → "…开组会"
+    private static func dropTrailingPreposition(_ text: String) -> String {
+        guard let trailing = firstMatch("(在|于|at|on)\\s*$", in: text)?[0] else { return text }
+        return String(text.dropLast(trailing.count)).trimmingCharacters(in: .whitespaces)
     }
 
     private static func join(_ before: String, _ after: String) -> String {

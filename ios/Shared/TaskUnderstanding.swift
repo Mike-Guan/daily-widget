@@ -133,10 +133,20 @@ enum TaskUnderstanding {
     }
 
     /// The model may tidy the title ("记一下明天牙医" → "牙医") but may not invent one.
+    /// It may also drop words from the middle ("和组里开一个小时的组会" → "和组里开会"), so the test is
+    /// that every character comes from the sentence, in order.
     static func groundedTitle(_ candidate: String, in text: String) -> String? {
         let title = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, title.count <= 80, contains(text, title) else { return nil }
+        guard title.count >= 2, title.count <= 80, isSubsequence(title, of: text) else { return nil }
         return title
+    }
+
+    static func isSubsequence(_ part: String, of text: String) -> Bool {
+        func normalized(_ value: String) -> [Character] { Array(value.lowercased().filter { !$0.isWhitespace }) }
+        let needle = normalized(part), haystack = normalized(text)
+        var index = 0
+        for character in haystack where index < needle.count && character == needle[index] { index += 1 }
+        return index == needle.count
     }
 
     private static func snap(_ minute: Int) -> Int { Int((Double(minute) / 15).rounded()) * 15 }
