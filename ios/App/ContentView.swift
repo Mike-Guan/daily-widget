@@ -336,10 +336,14 @@ private struct InboxPage: View {
     private func add() {
         let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
-        var task = store.newTask()
-        task.title = title
-        store.save(task)
         draft = ""
+        fieldFocused = false
+        // Same understanding as voice: a sentence with a day or time is scheduled, anything else stays here.
+        let english = store.language == "en"
+        Task {
+            let result = await TaskInterpreter.interpret(title, english: english)
+            store.addFromQuickAdd(result, jumpToDate: false)
+        }
     }
 
     private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }

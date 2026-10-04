@@ -199,6 +199,9 @@ enum QuickInputParser {
 /// Resolves a spoken day ("明天", "10月23日", "下周三", "Friday", "Oct 23") with calendar math.
 /// Language models are unreliable at this, so it is always done here.
 enum DatePhrase {
+    /// Day keys are Gregorian, so the math is too, whatever calendar the phone displays (e.g. Japanese or Buddhist).
+    static var gregorian: Calendar { var calendar = Calendar(identifier: .gregorian); calendar.timeZone = .current; calendar.firstWeekday = 2; return calendar }
+
     private static let numerals = "零一二三四五六七八九十两"
     private static let weekdays: [String: Int] = ["日": 1, "天": 1, "一": 2, "二": 3, "三": 4, "四": 5, "五": 6, "六": 7]
     private static let englishWeekdays = ["sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4, "thursday": 5, "friday": 6, "saturday": 7]
@@ -223,7 +226,7 @@ enum DatePhrase {
 
     /// A day phrase at the start of `text`, and what follows it.
     static func leading(in text: String, now: Date) -> (Date, String)? {
-        let calendar = Calendar.current
+        let calendar = gregorian
         let today = calendar.startOfDay(for: now)
         func rest(_ match: [String?]) -> String { String(text.dropFirst(match[0]!.count)) }
         func day(_ offset: Int) -> Date? { calendar.date(byAdding: .day, value: offset, to: today) }
@@ -256,7 +259,7 @@ enum DatePhrase {
     }
 
     private static func monthDay(month: Int, day: Int, year: Int?, today: Date) -> Date? {
-        let calendar = Calendar.current
+        let calendar = gregorian
         func make(_ year: Int) -> Date? {
             guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)), calendar.component(.month, from: date) == month, calendar.component(.day, from: date) == day else { return nil }
             return date
@@ -269,7 +272,7 @@ enum DatePhrase {
 
     /// Weeks start on Monday. A bare weekday means the next one coming (today counts); "下" means next week's.
     private static func weekdayDate(_ weekday: Int, modifier: String?, today: Date) -> Date? {
-        let calendar = Calendar.current
+        let calendar = gregorian
         let mondayIndex = { (value: Int) in (value + 5) % 7 }
         let todayIndex = mondayIndex(calendar.component(.weekday, from: today))
         guard let monday = calendar.date(byAdding: .day, value: -todayIndex, to: today) else { return nil }

@@ -102,6 +102,15 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(withModel, TaskDraft(title: "华山医院公众号挂号", date: "2026-10-23", start: 540, end: 570, category: "health", source: .model, wantsReminder: true, usesDefaultTime: true))
     }
 
+    func testMikesSecondSentence() {
+        let text = "帮我预约10月23号提醒我华山医院公众号挂号"
+        XCTAssertEqual(draft(text, nil), TaskDraft(title: "华山医院公众号挂号", date: "2026-10-23", start: 540, end: 570, source: .rules, wantsReminder: true, usesDefaultTime: true))
+        // A model that echoes the whole sentence as the title must not undo the rules' cleanup.
+        let echoed = draft(text, ModelTaskOutput(title: text, dateText: "10月23号", wantsReminder: true))
+        XCTAssertEqual(echoed.title, "华山医院公众号挂号")
+        XCTAssertEqual(echoed.date, "2026-10-23")
+    }
+
     func testRecognizerVariants() {
         for text in ["帮我添加一个10月23日提醒我在华山医院公众号挂号。", "十月二十三号提醒我挂号", "帮我预约 10 月 23 号提醒我挂号", "10/23提醒我挂号", "提醒我１０月２３日挂号", "我想在10月23号去华山医院挂号"] {
             let result = draft(text, nil)

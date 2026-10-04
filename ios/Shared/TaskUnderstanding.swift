@@ -81,7 +81,8 @@ enum TaskUnderstanding {
         var usedModel = false
 
         if let model {
-            if let title = groundedTitle(model.title, in: text) { draft.title = title; usedModel = true }
+            // The model may only make the title tidier than the rules did, never put the lead-in or the date back.
+            if let title = groundedTitle(model.title, in: text), title.count <= rules.title.count, title != rules.title { draft.title = title; usedModel = true }
             if let category = model.category, categories.contains(category), category != "personal" { draft.category = category; usedModel = true }
             if let recurrence = model.recurrence, recurrences.contains(recurrence), recurrence != "none" { draft.recurrence = recurrence; usedModel = true }
 

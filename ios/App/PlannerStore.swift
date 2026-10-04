@@ -72,12 +72,12 @@ final class PlannerStore: ObservableObject {
         Task { await ReminderScheduler.reconcile(tasks: tasks, english: english) }
     }
 
-    func addFromQuickAdd(_ draft: TaskDraft) {
+    func addFromQuickAdd(_ draft: TaskDraft, jumpToDate: Bool = true) {
         var task = newTask()
         task.apply(draft)
         if draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
         save(task)
-        if let date = draft.date { selectedDate = .date(fromKey: date) }
+        if jumpToDate, let date = draft.date { selectedDate = .date(fromKey: date) }
         recentlyAddedByModel = draft.source == .model
         recentlyAdded = records.first { $0.id == task.id }
     }
