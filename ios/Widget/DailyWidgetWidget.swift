@@ -70,7 +70,7 @@ struct DailyWidgetWidgetView: View {
     private var homeScreen: some View {
         VStack(alignment: .leading, spacing: family == .systemSmall ? 8 : 10) {
             header
-            ProgressView(value: Double(entry.snapshot.completed), total: Double(max(entry.snapshot.total, 1))).tint(DWColors.accent)
+            ProgressView(value: Double(entry.snapshot.completed), total: Double(max(entry.snapshot.total, 1))).tint(DWColors.accent).accessibilityLabel(text("Today's progress", "今日进度"))
             if visibleItems.isEmpty { emptyState } else { ForEach(visibleItems.prefix(itemLimit)) { taskRow($0) } }
             Spacer(minLength: 0)
         }
@@ -121,8 +121,15 @@ struct DailyWidgetWidgetView: View {
                     .font(.headline)
                     .lineLimit(1)
                 if let start = item.start {
-                    Text("\(time(start)) · \(remainingText)")
-                        .font(.caption2)
+                    // Counts down on its own; the system updates relative dates without a timeline reload.
+                    (Text("\(time(start)) · ") + (startDate(item).map { $0 > entry.date ? Text($0, style: .relative) : Text(text("now", "进行中")) } ?? Text(remainingText)))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                if let following = visibleItems.dropFirst().first {
+                    Text("\(following.start.map(time) ?? "") \(following.title)")
+                        .font(.caption2.monospacedDigit())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -156,6 +163,11 @@ struct DailyWidgetWidgetView: View {
     }
 
     private var lockScreenItem: WidgetSnapshot.Item? { visibleItems.first }
+
+    private func startDate(_ item: WidgetSnapshot.Item) -> Date? {
+        guard let start = item.start else { return nil }
+        return Calendar.current.date(byAdding: .minute, value: start, to: Calendar.current.startOfDay(for: Date.date(fromKey: entry.snapshot.date)))
+    }
 
     private var remainingText: String {
         let count = visibleItems.count
