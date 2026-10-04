@@ -99,7 +99,8 @@ enum TaskUnderstanding {
 
         // Without a model (Apple Intelligence off, unsupported region or language) a keyword guess still sets the category.
         if guessCategory, draft.category == "personal", let guess = keywordCategory(for: draft.title) { draft.category = guess }
-        draft.wantsReminder = QuickInputParser.mentionsReminder(text) || (model?.wantsReminder ?? false)
+        // Only when the words are there: small models say "remind: true" for sentences that never asked.
+        draft.wantsReminder = QuickInputParser.mentionsReminder(text)
         if draft.isScheduled {
             if let day { draft.date = day }
         } else if let day {
