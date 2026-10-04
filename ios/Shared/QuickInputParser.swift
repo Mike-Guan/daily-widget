@@ -22,7 +22,11 @@ enum QuickInputParser {
     static func parse(_ text: String, dateKey: String? = nil, now: Date = .now) -> Result {
         let original = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let baseDate = dateKey.flatMap { DateFormatter.dayKey.date(from: $0) } ?? now
-        var remainder = original.replacingOccurrences(of: "：", with: ":")
+        var remainder = original.replacingOccurrences(of: "：", with: ":").map { character -> Character in
+            // Full-width digits from some keyboards and recognizers.
+            guard let scalar = character.unicodeScalars.first, character.unicodeScalars.count == 1, (0xFF10...0xFF19).contains(scalar.value), let ascii = Unicode.Scalar(scalar.value - 0xFF10 + 0x30) else { return character }
+            return Character(ascii)
+        }.reduce(into: "") { $0.append($1) }
         // Dictation often ends the sentence for us.
         while let last = remainder.last, "。.!！,，".contains(last) { remainder.removeLast() }
         remainder = stripFiller(remainder)
@@ -35,6 +39,10 @@ enum QuickInputParser {
         } else if let (found, rest) = DatePhrase.leading(in: remainder, now: baseDate) {
             day = found
             remainder = stripFiller(rest)
+        } else if let (found, before, after) = DatePhrase.anywhere(in: remainder, now: baseDate) {
+            // Spoken sentences put the day in the middle: "帮我预约10月23号提醒我…".
+            day = found
+            remainder = join(stripFiller(before, mayBeEmpty: true), stripFiller(after))
         }
 
         var duration = 30
@@ -53,6 +61,9 @@ enum QuickInputParser {
         if let (minute, rest) = parseTime(remainder) {
             start = clampMinute(minute)
             remainder = rest.trimmingCharacters(in: .whitespaces)
+        } else if let (minute, before, after) = timeAnywhere(in: remainder) {
+            start = clampMinute(minute)
+            remainder = join(stripFiller(before, mayBeEmpty: true), stripFiller(after))
         }
 
         remainder = stripFiller(remainder)
@@ -68,10 +79,10 @@ enum QuickInputParser {
     }
 
     /// Drops lead-ins that are about the request, not the task: "帮我添加一个", "提醒我", "remind me to".
-    static func stripFiller(_ text: String) -> String {
-        var value = text.trimmingCharacters(in: .whitespaces)
-        for pattern in ["^(请)?(帮我|给我|麻烦)?(添加|加上|加|新建|创建|安排|记一下|记下|记)(一个|一下|个|一条|条)?(日程|任务|提醒|待办)?[，,：:\\s]*", "^(提醒我|记得|别忘了)(一下)?(要|去)?[，,：:\\s]*", "^(please\\s+)?(add|create|schedule)\\s+(a\\s+)?(task|reminder|event)?\\s*(to|for|:)?\\s+", "^remind me\\s+(to\\s+)?"] {
-            if let match = firstMatch(pattern, in: value), let whole = match[0], whole.count < value.count { value = String(value.dropFirst(whole.count)) }
+    static func stripFiller(_ text: String, mayBeEmpty: Bool = false) -> String {
+        var value = text.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "，,、")))
+        for pattern in ["^(请)?(帮我|给我|麻烦|我要|我想)?(添加|加上|加|新建|创建|安排|预约|预定|预订|订|记一下|记下|记|设置|设)(一个|一下|个|一条|条)?(日程|任务|提醒|待办)?[，,：:\\s]*", "^(请|帮我|给我|麻烦|我要|我想)[，,\\s]*", mayBeEmpty ? "^(在|于)[，,\\s]*$" : "^(的时候|的)[，,\\s]*", "^(提醒我|记得|别忘了|叫我|通知我)(一下)?(要|去)?[，,：:\\s]*", "^我+(要|得|想|需要)?(?=在|去|到|给|把|跟|和)", "^(please\\s+)?(add|create|schedule)\\s+(a\\s+)?(task|reminder|event)?\\s*(to|for|:)?\\s+", "^remind me\\s+(to\\s+)?"] {
+            if let match = firstMatch(pattern, in: value), let whole = match[0], !whole.isEmpty, mayBeEmpty || whole.count < value.count { value = String(value.dropFirst(whole.count)) }
         }
         return value.trimmingCharacters(in: .whitespaces)
     }
@@ -86,7 +97,24 @@ enum QuickInputParser {
     private static let numerals = "零一二三四五六七八九十两"
 
     /// Returns minutes from midnight and the text after the time, or nil when the text does not start with a time.
-    private static func parseTime(_ text: String) -> (Int, String)? {
+    /// A time in the middle of the sentence. Stricter than at the start: it needs 点, a colon,
+    /// am/pm or a part of the day, so plain numbers and "一点" (a little) are left alone.
+    private static func timeAnywhere(in text: String) -> (Int, String, String)? {
+        var index = text.startIndex
+        while index < text.endIndex {
+            let suffix = String(text[index...])
+            if let (minute, rest) = parseTime(suffix, strict: true) { return (minute, String(text[..<index]), rest) }
+            index = text.index(after: index)
+        }
+        return nil
+    }
+
+    private static func join(_ before: String, _ after: String) -> String {
+        let needsSpace = before.last?.isASCII == true && after.first?.isASCII == true && !before.isEmpty && !after.isEmpty
+        return (before + (needsSpace ? " " : "") + after).trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func parseTime(_ text: String, strict: Bool = false) -> (Int, String)? {
         var body = text
         var period: String?
         if let match = firstMatch("^(\(periods))\\s*", in: body) {
@@ -104,14 +132,16 @@ enum QuickInputParser {
             case "三刻": minute = 45
             case let value?: minute = chineseNumber(value)
             }
-            if let minute, let resolved = resolve(hour: hour, minute: minute, period: period) { return (resolved, match[3] ?? "") }
+            let ambiguous = strict && period == nil && match[1] == "一" && (match[2] ?? "").isEmpty
+            if !ambiguous, let minute, let resolved = resolve(hour: hour, minute: minute, period: period) { return (resolved, match[3] ?? "") }
         }
 
         // 9:30 / at 9 / 3pm / 3:15 pm. A bare hour needs "at", am/pm, or a space before the title,
         // so "3个苹果" is not read as 3:00.
-        if let match = firstMatch("^(at\\s*)?(\\d{1,2})(?::(\\d{2}))?\\s*(a\\.?m\\.?|p\\.?m\\.?)?(\\s*)(.+)$", in: body), let hour = Int(match[2] ?? "") {
+        // In the middle of a sentence the time may be the last thing said, so nothing has to follow it.
+        if let match = firstMatch("^(at\\s*)?(\\d{1,2})(?::(\\d{2}))?\\s*(a\\.?m\\.?|p\\.?m\\.?)?(\\s*)(\(strict ? ".*" : ".+"))$", in: body), let hour = Int(match[2] ?? "") {
             let hasAt = match[1] != nil, hasColon = match[3] != nil, meridiem = match[4]?.lowercased(), hasSpace = !(match[5] ?? "").isEmpty
-            if hasAt || hasColon || meridiem != nil || hasSpace || period != nil {
+            if strict ? (hasColon || meridiem != nil || period != nil) : (hasAt || hasColon || meridiem != nil || hasSpace || period != nil) {
                 let englishPeriod = meridiem.map { $0.hasPrefix("p") ? "pm" : "am" }
                 if let resolved = resolve(hour: hour, minute: Int(match[3] ?? "0") ?? 0, period: englishPeriod ?? period) { return (resolved, match[6] ?? "") }
             }
@@ -181,6 +211,16 @@ enum DatePhrase {
         return date
     }
 
+    /// The first day phrase anywhere in `text`, with the text before and after it.
+    static func anywhere(in text: String, now: Date) -> (Date, String, String)? {
+        var index = text.startIndex
+        while index < text.endIndex {
+            if let (date, rest) = leading(in: String(text[index...]), now: now) { return (date, String(text[..<index]), rest) }
+            index = text.index(after: index)
+        }
+        return nil
+    }
+
     /// A day phrase at the start of `text`, and what follows it.
     static func leading(in text: String, now: Date) -> (Date, String)? {
         let calendar = Calendar.current
@@ -194,9 +234,11 @@ enum DatePhrase {
         }
 
         // 10月23日 / 十月二十三号 / 2027年1月5日; a day that has passed this year means next year.
-        if let found = match("^(?:(\\d{4})年)?(\\d{1,2}|[\(numerals)]+)月(\\d{1,2}|[\(numerals)]+)[日号號]?\\s*"), let month = QuickInputParser.chineseNumber(found[2] ?? ""), let dayNumber = QuickInputParser.chineseNumber(found[3] ?? ""), let date = monthDay(month: month, day: dayNumber, year: found[1].flatMap(Int.init), today: today) { return (date, rest(found)) }
+        if let found = match("^(?:(\\d{4})\\s*年\\s*)?(\\d{1,2}|[\(numerals)]+)\\s*月\\s*(\\d{1,2}|[\(numerals)]+)\\s*[日号號]?\\s*"), let month = QuickInputParser.chineseNumber(found[2] ?? ""), let dayNumber = QuickInputParser.chineseNumber(found[3] ?? ""), let date = monthDay(month: month, day: dayNumber, year: found[1].flatMap(Int.init), today: today) { return (date, rest(found)) }
+        // 10/23 or 10-23, only where a clock time cannot be meant.
+        if let found = match("^(\\d{1,2})[/／-](\\d{1,2})(?![\\d:])[日号號]?\\s*"), let month = Int(found[1] ?? ""), let dayNumber = Int(found[2] ?? ""), let date = monthDay(month: month, day: dayNumber, year: nil, today: today) { return (date, rest(found)) }
         // 23号: this month, or next month if it has passed.
-        if let found = match("^(\\d{1,2}|[\(numerals)]+)[号號]\\s*"), let dayNumber = QuickInputParser.chineseNumber(found[1] ?? "") {
+        if let found = match("^(\\d{1,2}|[\(numerals)]+)\\s*[号號]\\s*"), let dayNumber = QuickInputParser.chineseNumber(found[1] ?? "") {
             var components = calendar.dateComponents([.year, .month], from: today)
             components.day = dayNumber
             if let date = calendar.date(from: components), calendar.component(.day, from: date) == dayNumber {
