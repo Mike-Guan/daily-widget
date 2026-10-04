@@ -27,6 +27,12 @@
 		A10000000000000000000018 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* WidgetSnapshot.swift */; };
 		A10000000000000000000019 /* TaskRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* TaskRepositoryTests.swift */; };
 		A10000000000000000000020 /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* WidgetSnapshotTests.swift */; };
+		A10000000000000000000021 /* QuickInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* QuickInputParser.swift */; };
+		A10000000000000000000022 /* QuickInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* QuickInputParser.swift */; };
+		A10000000000000000000023 /* AddTaskIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* AddTaskIntent.swift */; };
+		A10000000000000000000024 /* QuickInputParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* QuickInputParserTests.swift */; };
+		A10000000000000000000025 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* AppShortcuts.strings */; };
+		A10000000000000000000026 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,7 +79,35 @@
 		A20000000000000000000017 /* TaskRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRepositoryTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000018 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* DailyWidgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyWidgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000020 /* QuickInputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickInputParser.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* AddTaskIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskIntent.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* QuickInputParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickInputParserTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000025 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "en"; path = "en.lproj/AppShortcuts.strings"; sourceTree = "<group>"; };
+		A20000000000000000000026 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/AppShortcuts.strings"; sourceTree = "<group>"; };
+		A20000000000000000000027 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "en"; path = "en.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		A20000000000000000000028 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXVariantGroup section */
+		A20000000000000000000023 /* AppShortcuts.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A20000000000000000000025 /* en */,
+				A20000000000000000000026 /* zh-Hans */,
+			);
+			name = AppShortcuts.strings;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000024 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A20000000000000000000027 /* en */,
+				A20000000000000000000028 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A70000000000000000000001 /* Frameworks */ = {
@@ -118,6 +152,9 @@
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* TimelineView.swift */,
 				A20000000000000000000004 /* PlannerStore.swift */,
+				A20000000000000000000021 /* AddTaskIntent.swift */,
+				A20000000000000000000023 /* AppShortcuts.strings */,
+				A20000000000000000000024 /* Localizable.strings */,
 				A20000000000000000000010 /* Info.plist */,
 				A20000000000000000000011 /* DailyWidget.entitlements */,
 				A20000000000000000000014 /* Assets.xcassets */,
@@ -132,6 +169,7 @@
 				A20000000000000000000006 /* WidgetSnapshot.swift */,
 				A20000000000000000000015 /* DesignSystem.swift */,
 				A20000000000000000000016 /* TaskRepository.swift */,
+				A20000000000000000000020 /* QuickInputParser.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -161,6 +199,7 @@
 			children = (
 				A20000000000000000000017 /* TaskRepositoryTests.swift */,
 				A20000000000000000000018 /* WidgetSnapshotTests.swift */,
+				A20000000000000000000022 /* QuickInputParserTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -261,6 +300,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000011 /* Assets.xcassets in Resources */,
+				A10000000000000000000025 /* AppShortcuts.strings in Resources */,
+				A10000000000000000000026 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,6 +339,8 @@
 				A10000000000000000000005 /* PlannerTask.swift in Sources */,
 				A10000000000000000000006 /* WidgetSnapshot.swift in Sources */,
 				A10000000000000000000014 /* TaskRepository.swift in Sources */,
+				A10000000000000000000021 /* QuickInputParser.swift in Sources */,
+				A10000000000000000000023 /* AddTaskIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,6 +353,8 @@
 				A10000000000000000000016 /* TaskRepository.swift in Sources */,
 				A10000000000000000000019 /* TaskRepositoryTests.swift in Sources */,
 				A10000000000000000000020 /* WidgetSnapshotTests.swift in Sources */,
+				A10000000000000000000022 /* QuickInputParser.swift in Sources */,
+				A10000000000000000000024 /* QuickInputParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
