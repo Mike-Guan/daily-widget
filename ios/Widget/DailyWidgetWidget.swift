@@ -5,11 +5,17 @@ import AppIntents
 struct DailyWidgetEntry: TimelineEntry { let date: Date; let snapshot: WidgetSnapshot }
 
 struct DailyWidgetProvider: TimelineProvider {
-    private static let sampleSnapshot = WidgetSnapshot(date: Date().dayKey, completed: 1, total: 3, current: .init(id: "sample", title: "晨间散步", start: 540, end: 570, done: false, category: "health", date: Date().dayKey), upcoming: [], updatedAt: .now)
-    func placeholder(in context: Context) -> DailyWidgetEntry { .init(date: .now, snapshot: Self.sampleSnapshot) }
-    func getSnapshot(in context: Context, completion: @escaping (DailyWidgetEntry) -> Void) { completion(entry()) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<DailyWidgetEntry>) -> Void) { let entry = entry(); completion(Timeline(entries: [entry], policy: .after(Calendar.current.date(byAdding: .minute, value: 30, to: .now)!))) }
-    private func entry() -> DailyWidgetEntry { let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.guanshiyang.dailywidget")?.appendingPathComponent("widget-today.json"); let snapshot = url.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONDecoder().decode(WidgetSnapshot.self, from: $0) } ?? Self.sampleSnapshot; return .init(date: .now, snapshot: snapshot) }
+    func placeholder(in context: Context) -> DailyWidgetEntry { .init(date: .now, snapshot: .empty(dateKey: Date().dayKey)) }
+    func getSnapshot(in context: Context, completion: @escaping (DailyWidgetEntry) -> Void) { completion(entry(at: .now)) }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DailyWidgetEntry>) -> Void) {
+        let now = Date()
+        let calendar = Calendar.current
+        var entries = [entry(at: now)]
+        // A second entry at 0:00 switches the widget to the new day even if the system delays the next reload.
+        if let midnight = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) { entries.append(entry(at: midnight)) }
+        completion(Timeline(entries: entries, policy: .after(calendar.date(byAdding: .minute, value: 30, to: now)!)))
+    }
+    private func entry(at date: Date) -> DailyWidgetEntry { .init(date: date, snapshot: WidgetSnapshot.resolve(for: date)) }
 }
 
 @available(iOS 17.0, *)
@@ -29,16 +35,7 @@ struct ToggleTaskIntent: AppIntent {
         tasks[index].updatedAt = ISO8601DateFormatter().string(from: .now); tasks[index].updatedBy = "widget"
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(tasks).write(to: group.appendingPathComponent("tasks.json"), options: .atomic)
-        let snapshotURL = group.appendingPathComponent("widget-today.json")
-        if var snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: Data(contentsOf: snapshotURL)) {
-            func refreshed(_ item: WidgetSnapshot.Item) -> WidgetSnapshot.Item {
-                guard let task = tasks.first(where: { $0.id == item.id }) else { return item }
-                var next = item; next.done = task.isDone(on: item.date); return next
-            }
-            let dayOccurrences = tasks.flatMap { $0.occurrences(on: snapshot.date) }
-            snapshot.current = snapshot.current.map(refreshed); snapshot.upcoming = snapshot.upcoming.map(refreshed); snapshot.completed = dayOccurrences.filter(\.isDone).count; snapshot.total = dayOccurrences.count; snapshot.updatedAt = .now
-            try encoder.encode(snapshot).write(to: snapshotURL, options: .atomic)
-        }
+        WidgetSnapshot.write(tasks: tasks, language: WidgetSnapshot.stored(in: group)?.language ?? "zh", to: group)
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
@@ -188,7 +185,7 @@ struct DailyWidgetWidgetView: View {
     private var itemLimit: Int { family == .systemSmall ? 1 : family == .systemLarge ? 5 : 3 }
 
     private var emptyState: some View {
-        HStack(spacing: 9) { Image(systemName: "sparkles").foregroundStyle(DWColors.accent); Text(text("All clear for today", "今天已经清空")).font(.caption.weight(.medium)).foregroundStyle(DWColors.muted) }.padding(.vertical, 10)
+        HStack(spacing: 9) { Image(systemName: "sparkles").foregroundStyle(DWColors.accent); Text(entry.snapshot.total == 0 ? text("Nothing planned yet", "今天还没有安排") : text("All clear for today", "今天已经清空")).font(.caption.weight(.medium)).foregroundStyle(DWColors.muted) }.padding(.vertical, 10)
     }
 
     private func taskRow(_ item: WidgetSnapshot.Item) -> some View {
