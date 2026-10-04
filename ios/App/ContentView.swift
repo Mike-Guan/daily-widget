@@ -23,7 +23,7 @@ struct ContentView: View {
             page(.topThree) { TopThreePage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
             page(.review) { DailyReviewPage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { addedBanner; bottomBar } }
         .tint(DWColors.accent)
         .preferredColorScheme(colorScheme)
         .sheet(isPresented: $showingEditor) { if let task = selectedTask { TaskEditor(task: task) } }
@@ -106,6 +106,34 @@ struct ContentView: View {
             Label(message, systemImage: "exclamationmark.triangle.fill").font(DWFont.caption).foregroundStyle(DWColors.danger).lineLimit(2)
         case .synced, .localOnly:
             EmptyView()
+        }
+    }
+
+    // MARK: Added banner with Undo
+
+    @ViewBuilder private var addedBanner: some View {
+        if let task = store.recentlyAdded {
+            HStack(spacing: DWSpacing.sm) {
+                Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(DWColors.accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(text("Added", "已添加") + " · " + task.title).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
+                    Text(AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end, category: task.category, recurrence: task.recurrence, notes: task.notes), english: store.language == "en").when).font(DWFont.caption).foregroundStyle(DWColors.muted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button { selectedTask = task; store.recentlyAdded = nil; showingEditor = true } label: { Text(text("Edit", "改一下")).font(DWFont.label).frame(minWidth: 44, minHeight: 44) }
+                Button { store.undoRecentlyAdded() } label: { Text(text("Undo", "撤销")).font(DWFont.label).frame(minWidth: 44, minHeight: 44) }
+            }
+            .padding(.horizontal, DWSpacing.md).padding(.vertical, DWSpacing.xxs)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous).stroke(DWColors.line.opacity(0.6)))
+            .shadow(color: .black.opacity(0.08), radius: 16, y: 6)
+            .padding(.horizontal, DWSpacing.md)
+            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            .task(id: task.id) {
+                try? await Task.sleep(for: .seconds(QuickAddPolicy.undoWindow))
+                if !Task.isCancelled, store.recentlyAdded?.id == task.id { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.recentlyAdded = nil } }
+            }
+            .accessibilityElement(children: .contain)
         }
     }
 
@@ -501,6 +529,11 @@ private struct QuickAddSheet: View {
         stage = .understanding
         Task {
             let result = await TaskInterpreter.interpret(sentence, english: english)
+            if QuickAddPolicy.addsImmediately {
+                store.addFromQuickAdd(result)
+                dismiss()
+                return
+            }
             draft = result
             if reduceMotion { stage = .confirm } else { withAnimation(.easeOut(duration: 0.2)) { stage = .confirm } }
         }

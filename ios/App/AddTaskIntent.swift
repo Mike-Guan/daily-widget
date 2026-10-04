@@ -13,7 +13,7 @@ struct AddTaskIntent: AppIntent {
 
     static var parameterSummary: some ParameterSummary { Summary("Add \(\.$text)") }
 
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         guard let repository = TaskRepository.shared else { throw AddTaskError.storageUnavailable }
         let english = (WidgetSnapshot.stored(in: repository.directory)?.language ?? "zh") == "en"
         let draft = await TaskInterpreter.interpret(text, english: english)
@@ -21,17 +21,41 @@ struct AddTaskIntent: AppIntent {
             throw $text.needsValueError(IntentDialog(stringLiteral: english ? "What do you want to add?" : "要记什么？"))
         }
 
-        // Nothing is written until the user confirms the card.
         let summary = AddTaskSummary(draft: draft, english: english)
-        try await requestConfirmation(
-            result: .result(dialog: IntentDialog(stringLiteral: summary.question)) { AddTaskConfirmationView(summary: summary) },
-            confirmationActionName: .add
-        )
+        if !QuickAddPolicy.addsImmediately {
+            // Nothing is written until the user confirms the card.
+            try await requestConfirmation(
+                result: .result(dialog: IntentDialog(stringLiteral: summary.question)) { AddTaskConfirmationView(summary: summary) },
+                confirmationActionName: .add
+            )
+        }
 
         var task = PlannerTask.empty(date: draft.date, start: draft.start, end: draft.end, deviceID: "siri")
         task.apply(draft)
         try repository.upsert(task)
-        return .result(dialog: IntentDialog(stringLiteral: summary.done))
+        return .result(dialog: IntentDialog(stringLiteral: summary.done)) { AddTaskConfirmationView(summary: summary, undoTaskID: task.id) }
+    }
+}
+
+/// Takes back a task that was just added by voice. It is tombstoned, like any delete, so sync agrees.
+struct UndoAddTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Undo add task"
+    static var openAppWhenRun = false
+    static var isDiscoverable = false
+
+    @Parameter(title: "Task ID") var taskID: String
+    init() {}
+    init(taskID: String) { self.taskID = taskID }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let repository = TaskRepository.shared else { throw AddTaskError.storageUnavailable }
+        let english = (WidgetSnapshot.stored(in: repository.directory)?.language ?? "zh") == "en"
+        try repository.mutate { tasks in
+            guard let index = tasks.firstIndex(where: { $0.id == taskID }) else { return }
+            tasks[index].deletedAt = ISO8601DateFormatter().string(from: .now)
+            tasks[index].touch(deviceID: "siri")
+        }
+        return .result(dialog: IntentDialog(stringLiteral: english ? "Removed." : "已撤销。"))
     }
 }
 
@@ -99,6 +123,8 @@ struct AddTaskSummary {
 
 struct AddTaskConfirmationView: View {
     let summary: AddTaskSummary
+    /// When set, the card shows an Undo button for the task that was just added.
+    var undoTaskID: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -113,6 +139,10 @@ struct AddTaskConfirmationView: View {
                 Text(summary.detail).font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
+            if let undoTaskID {
+                Button(intent: UndoAddTaskIntent(taskID: undoTaskID)) { Label(summary.english ? "Undo" : "撤销", systemImage: "arrow.uturn.backward").font(.subheadline.weight(.semibold)) }
+                    .buttonStyle(.bordered).tint(DWColors.accent)
+            }
         }
         .padding(16)
     }

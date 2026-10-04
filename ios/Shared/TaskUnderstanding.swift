@@ -16,6 +16,13 @@ struct TaskDraft: Equatable {
     var isScheduled: Bool { date != nil && start != nil && end != nil }
 }
 
+/// The one switch for how a spoken task is committed, shared by the app, Siri and the Action Button.
+enum QuickAddPolicy {
+    /// true: add as soon as the sentence is understood and offer Undo. false: always ask first.
+    static let addsImmediately = true
+    static let undoWindow: TimeInterval = 5
+}
+
 /// Raw fields as a language model returned them. The model only points at the words for the day
 /// and the time; turning those words into a date is done in code. Nothing here is trusted until
 /// `TaskUnderstanding` has checked it.
