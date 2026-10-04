@@ -86,6 +86,7 @@ final class QuickInputParserTests: XCTestCase {
     func testSpokenDurations() {
         XCTAssertEqual(parse("九点跑步半小时").duration, 30)
         XCTAssertEqual(parse("九点写作两个小时").end, 660)
+        XCTAssertEqual(parse("晚上七点吃饭一个半小时"), Result(date: today, start: 1140, end: 1230, title: "吃饭", duration: 90, hasExplicitTime: true))
         XCTAssertEqual(parse("9:00 review 45 minutes").duration, 45)
     }
 

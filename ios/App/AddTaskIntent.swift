@@ -16,22 +16,34 @@ struct AddTaskIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let repository = TaskRepository.shared else { throw AddTaskError.storageUnavailable }
         let english = (WidgetSnapshot.stored(in: repository.directory)?.language ?? "zh") == "en"
-        let parsed = QuickInputParser.parse(text)
-        guard !parsed.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let draft = await TaskInterpreter.interpret(text, english: english)
+        guard !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw $text.needsValueError(IntentDialog(stringLiteral: english ? "What do you want to add?" : "要记什么？"))
         }
 
         // Nothing is written until the user confirms the card.
-        let summary = AddTaskSummary(parsed: parsed, english: english)
+        let summary = AddTaskSummary(draft: draft, english: english)
         try await requestConfirmation(
             result: .result(dialog: IntentDialog(stringLiteral: summary.question)) { AddTaskConfirmationView(summary: summary) },
             confirmationActionName: .add
         )
 
-        var task = PlannerTask.empty(date: parsed.date, start: parsed.start, end: parsed.end, deviceID: "siri")
-        task.title = parsed.title
+        var task = PlannerTask.empty(date: draft.date, start: draft.start, end: draft.end, deviceID: "siri")
+        task.apply(draft)
         try repository.upsert(task)
         return .result(dialog: IntentDialog(stringLiteral: summary.done))
+    }
+}
+
+extension PlannerTask {
+    mutating func apply(_ draft: TaskDraft) {
+        title = draft.title
+        date = draft.date
+        start = draft.start
+        end = draft.end
+        category = draft.category
+        recurrence = draft.recurrence
+        if !draft.notes.isEmpty { notes = draft.notes }
     }
 }
 
@@ -45,13 +57,24 @@ struct AddTaskSummary {
     let when: String
     let isInbox: Bool
     let english: Bool
+    /// Category, repeat rule and who understood the sentence, e.g. "健康 · 每天 · 由本机 AI 理解".
+    let detail: String
 
-    init(parsed: QuickInputParser.Result, english: Bool, today: Date = .now) {
-        self.title = parsed.title
+    init(draft: TaskDraft, english: Bool, today: Date = .now) {
+        self.title = draft.title
         self.english = english
-        guard let date = parsed.date, let start = parsed.start, let end = parsed.end else {
+        let categories = ["personal": "个人", "health": "健康", "home": "生活", "social": "关系", "learning": "学习", "errands": "杂事"]
+        let recurrences = english ? ["daily": "Every day", "weekdays": "Weekdays", "weekly": "Every week"] : ["daily": "每天", "weekdays": "工作日", "weekly": "每周"]
+        detail = [
+            english ? draft.category.capitalized : categories[draft.category] ?? draft.category,
+            recurrences[draft.recurrence],
+            draft.source == .model ? (english ? "Understood by on-device AI" : "由本机 AI 理解") : (english ? "Parsed by rules" : "按规则解析"),
+        ].compactMap { $0 }.joined(separator: " · ")
+        guard let date = draft.date, let start = draft.start, let end = draft.end else {
             isInbox = true
-            when = english ? "Inbox · no time" : "收集箱 · 未定时间"
+            let keptDay = draft.notes.count == 10 ? DateFormatter.dayKey.date(from: draft.notes) : nil
+            let dayNote = keptDay.map { " · " + $0.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: english ? "en_US" : "zh_Hans_CN"))) } ?? ""
+            when = (english ? "Inbox · no time" : "收集箱 · 未定时间") + dayNote
             return
         }
         isInbox = false
@@ -87,6 +110,7 @@ struct AddTaskConfirmationView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(summary.title).font(.headline).lineLimit(2)
                 Text(summary.when).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                Text(summary.detail).font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }
