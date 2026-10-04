@@ -11,3 +11,8 @@ exports/*.md
 ios/**/xcuserdata/
 ios/**/*.xcuserstate
 .DS_Store
+
+# On-device model weights, fetched by scripts/download-model.sh
+ios/Models/
+ios/LocalModelKit/.build/
+ios/LocalModelKit/.swiftpm/
