@@ -74,7 +74,7 @@ enum TaskUnderstanding {
     static let categories = ["personal", "health", "home", "social", "learning", "errands"]
     static let recurrences = ["none", "daily", "weekdays", "weekly"]
 
-    static func draft(text: String, model: ModelTaskOutput?, now: Date = .now) -> TaskDraft {
+    static func draft(text: String, model: ModelTaskOutput?, now: Date = .now, guessCategory: Bool = true) -> TaskDraft {
         let rules = QuickInputParser.parse(text, now: now)
         var draft = TaskDraft(title: rules.title, date: rules.date, start: rules.start, end: rules.end, recurrence: rules.recurrence, usesDefaultTime: rules.assumedTime)
         var day = rules.day
@@ -97,6 +97,8 @@ enum TaskUnderstanding {
             }
         }
 
+        // Without a model (Apple Intelligence off, unsupported region or language) a keyword guess still sets the category.
+        if guessCategory, draft.category == "personal", let guess = keywordCategory(for: draft.title) { draft.category = guess }
         draft.wantsReminder = QuickInputParser.mentionsReminder(text) || (model?.wantsReminder ?? false)
         if draft.isScheduled {
             if let day { draft.date = day }
@@ -114,6 +116,19 @@ enum TaskUnderstanding {
         }
         if usedModel { draft.source = .model }
         return draft
+    }
+
+    /// A category from everyday words in the title; nil when nothing matches.
+    static func keywordCategory(for title: String) -> String? {
+        let table: [(String, [String])] = [
+            ("health", ["医院", "牙医", "医生", "体检", "挂号", "看病", "复诊", "吃药", "疫苗", "跑步", "健身", "瑜伽", "游泳", "散步", "锻炼", "冥想", "doctor", "dentist", "gym", "workout", "run", "yoga", "checkup", "hospital"]),
+            ("social", ["吃饭", "聚会", "聚餐", "约会", "朋友", "同学", "生日", "婚礼", "妈妈", "爸爸", "家人", "打电话", "晚餐", "午饭", "喝咖啡", "见面", "dinner", "lunch", "party", "call mom", "call dad", "birthday", "coffee with", "meet"]),
+            ("learning", ["学习", "复习", "上课", "网课", "考试", "读书", "看书", "阅读", "背单词", "练习", "作业", "论文", "study", "read", "class", "lesson", "exam", "homework", "course"]),
+            ("home", ["大扫除", "打扫", "洗衣", "做饭", "买菜", "收拾", "整理", "倒垃圾", "维修", "修理", "搬家", "浇花", "房租", "clean", "laundry", "cook", "groceries", "tidy", "rent", "repair"]),
+            ("errands", ["银行", "快递", "取件", "寄", "办理", "缴费", "交费", "续费", "报销", "签证", "护照", "邮局", "加油", "洗车", "取钱", "bank", "pick up", "post office", "renew", "pay ", "errand"]),
+        ]
+        let lowered = title.lowercased()
+        return table.first { $0.1.contains { lowered.contains($0) } }?.0
     }
 
     /// The model may tidy the title ("记一下明天牙医" → "牙医") but may not invent one.

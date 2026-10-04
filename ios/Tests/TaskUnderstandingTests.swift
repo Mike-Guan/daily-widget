@@ -4,8 +4,9 @@ final class TaskUnderstandingTests: XCTestCase {
     // Monday 2026-10-05, 10:00 local time.
     private let now = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 5, hour: 10))!
 
-    private func draft(_ text: String, _ model: ModelTaskOutput?) -> TaskDraft {
-        TaskUnderstanding.draft(text: text, model: model, now: now)
+    /// Keyword categories are off here so these tests look at one thing at a time; see testKeywordCategoryWithoutAModel.
+    private func draft(_ text: String, _ model: ModelTaskOutput?, guessCategory: Bool = false) -> TaskDraft {
+        TaskUnderstanding.draft(text: text, model: model, now: now, guessCategory: guessCategory)
     }
 
     func testWithoutModelItIsTheRuleParser() {
@@ -161,6 +162,17 @@ final class TaskUnderstandingTests: XCTestCase {
         check("周末大扫除", "大扫除", "2026-10-10", 540, 570, defaultTime: true)
         check("月底提醒我交房租", "交房租", "2026-10-31", 540, 570, reminder: true, defaultTime: true)
         check("call mom tomorrow morning", "call mom", "2026-10-06", 480, 510, defaultTime: true)
+    }
+
+    func testKeywordCategoryWithoutAModel() {
+        XCTAssertEqual(draft("帮我预约10月23号提醒我华山医院公众号挂号", nil, guessCategory: true).category, "health")
+        XCTAssertEqual(draft("周五晚上和老王吃饭", nil, guessCategory: true).category, "social")
+        XCTAssertEqual(draft("周末大扫除", nil, guessCategory: true).category, "home")
+        XCTAssertEqual(draft("23号去银行", nil, guessCategory: true).category, "errands")
+        XCTAssertEqual(draft("明天晚上复习英语", nil, guessCategory: true).category, "learning")
+        XCTAssertEqual(draft("明天上午9点到11点写方案", nil, guessCategory: true).category, "personal")
+        // A valid category from the model wins over the keyword guess.
+        XCTAssertEqual(draft("周五晚上和老王吃饭", ModelTaskOutput(title: "和老王吃饭", category: "home"), guessCategory: true).category, "home")
     }
 
     // MARK: Date phrases resolved in code
