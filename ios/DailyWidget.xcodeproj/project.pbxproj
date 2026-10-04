@@ -20,6 +20,13 @@
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* Assets.xcassets */; };
 		A10000000000000000000012 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* DesignSystem.swift */; };
 		A10000000000000000000013 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* DesignSystem.swift */; };
+		A10000000000000000000014 /* TaskRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* TaskRepository.swift */; };
+		A10000000000000000000015 /* TaskRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* TaskRepository.swift */; };
+		A10000000000000000000016 /* TaskRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* TaskRepository.swift */; };
+		A10000000000000000000017 /* PlannerTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* PlannerTask.swift */; };
+		A10000000000000000000018 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* WidgetSnapshot.swift */; };
+		A10000000000000000000019 /* TaskRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* TaskRepositoryTests.swift */; };
+		A10000000000000000000020 /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* WidgetSnapshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +69,10 @@
 		A20000000000000000000013 /* DailyWidgetWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DailyWidgetWidget.entitlements; sourceTree = "<group>"; };
 		A20000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000015 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		A20000000000000000000016 /* TaskRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRepository.swift; sourceTree = "<group>"; };
+		A20000000000000000000017 /* TaskRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRepositoryTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000018 /* WidgetSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000019 /* DailyWidgetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DailyWidgetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +90,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A70000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -88,6 +106,7 @@
 				A80000000000000000000002 /* App */,
 				A80000000000000000000003 /* Shared */,
 				A80000000000000000000004 /* Widget */,
+				A80000000000000000000006 /* Tests */,
 				A80000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +131,7 @@
 				A20000000000000000000005 /* PlannerTask.swift */,
 				A20000000000000000000006 /* WidgetSnapshot.swift */,
 				A20000000000000000000015 /* DesignSystem.swift */,
+				A20000000000000000000016 /* TaskRepository.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -131,8 +151,18 @@
 			children = (
 				A20000000000000000000009 /* DailyWidget.app */,
 				A20000000000000000000008 /* DailyWidgetWidget.appex */,
+				A20000000000000000000019 /* DailyWidgetTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000006 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000017 /* TaskRepositoryTests.swift */,
+				A20000000000000000000018 /* WidgetSnapshotTests.swift */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -174,6 +204,22 @@
 			productReference = A20000000000000000000008 /* DailyWidgetWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		A50000000000000000000003 /* DailyWidgetTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A90000000000000000000004 /* Build configuration list for PBXNativeTarget "DailyWidgetTests" */;
+			buildPhases = (
+				AA0000000000000000000003 /* Sources */,
+				A70000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DailyWidgetTests;
+			productName = DailyWidgetTests;
+			productReference = A20000000000000000000019 /* DailyWidgetTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -204,6 +250,7 @@
 			targets = (
 				A50000000000000000000001 /* DailyWidget */,
 				A50000000000000000000002 /* DailyWidgetWidget */,
+				A50000000000000000000003 /* DailyWidgetTests */,
 			);
 		};
 /* End PBXProject section */
@@ -235,6 +282,7 @@
 				A10000000000000000000007 /* DailyWidgetWidget.swift in Sources */,
 				A10000000000000000000008 /* PlannerTask.swift in Sources */,
 				A10000000000000000000009 /* WidgetSnapshot.swift in Sources */,
+				A10000000000000000000015 /* TaskRepository.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +297,19 @@
 				A10000000000000000000004 /* PlannerStore.swift in Sources */,
 				A10000000000000000000005 /* PlannerTask.swift in Sources */,
 				A10000000000000000000006 /* WidgetSnapshot.swift in Sources */,
+				A10000000000000000000014 /* TaskRepository.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA0000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000017 /* PlannerTask.swift in Sources */,
+				A10000000000000000000018 /* WidgetSnapshot.swift in Sources */,
+				A10000000000000000000016 /* TaskRepository.swift in Sources */,
+				A10000000000000000000019 /* TaskRepositoryTests.swift in Sources */,
+				A10000000000000000000020 /* WidgetSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -357,6 +418,38 @@
 			};
 			name = Release;
 		};
+		AC0000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = B3W4J793AD;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.guanshiyang.dailywidget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AC0000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = B3W4J793AD;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.guanshiyang.dailywidget.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -383,6 +476,15 @@
 			buildConfigurations = (
 				AC0000000000000000000001 /* Debug */,
 				AC0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A90000000000000000000004 /* Build configuration list for PBXNativeTarget "DailyWidgetTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AC0000000000000000000007 /* Debug */,
+				AC0000000000000000000008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

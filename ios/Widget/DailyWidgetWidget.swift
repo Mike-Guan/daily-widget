@@ -27,16 +27,7 @@ struct ToggleTaskIntent: AppIntent {
     init() {}
     init(taskID: String, dateKey: String) { self.taskID = taskID; self.dateKey = dateKey }
     func perform() async throws -> some IntentResult {
-        let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.guanshiyang.dailywidget")
-        guard let group, let data = try? Data(contentsOf: group.appendingPathComponent("tasks.json")), var tasks = try? JSONDecoder().decode([PlannerTask].self, from: data), let index = tasks.firstIndex(where: { $0.id == taskID }) else { return .result() }
-        if tasks[index].recurrence == "none" { tasks[index].done.toggle() }
-        else if let completed = tasks[index].completedDates.firstIndex(of: dateKey) { tasks[index].completedDates.remove(at: completed) }
-        else { tasks[index].completedDates.append(dateKey); tasks[index].completedDates.sort() }
-        tasks[index].updatedAt = ISO8601DateFormatter().string(from: .now); tasks[index].updatedBy = "widget"
-        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(tasks).write(to: group.appendingPathComponent("tasks.json"), options: .atomic)
-        WidgetSnapshot.write(tasks: tasks, language: WidgetSnapshot.stored(in: group)?.language ?? "zh", to: group)
-        WidgetCenter.shared.reloadAllTimelines()
+        try TaskRepository.shared?.toggleDone(taskID: taskID, dateKey: dateKey, deviceID: "widget")
         return .result()
     }
 }
