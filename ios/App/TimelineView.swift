@@ -1,13 +1,15 @@
 import SwiftUI
+import UIKit
 
 struct TimelineView: View {
     @EnvironmentObject private var store: PlannerStore
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
     @Binding var showingQuickCreate: Bool
-    @GestureState private var pressState = false
     @State private var draftStart: Int?
     @State private var draftEnd: Int?
+    @State private var isCreateMode = false
     private let startHour = 0
     private let endHour = 24
     private let hourHeight: CGFloat = 68
@@ -16,19 +18,28 @@ struct TimelineView: View {
         ScrollView {
             VStack(spacing: 14) {
                 summary
+                if isCreateMode { createModeBanner }
                 ZStack(alignment: .topLeading) {
                     grid
+                    currentTimeIndicator
                     tasks
                     if let draftStart, let draftEnd { draftBlock(start: draftStart, end: draftEnd) }
+                    if isCreateMode { creationOverlay }
                 }
                 .frame(height: CGFloat(endHour - startHour) * hourHeight)
+                .background(DWColors.surface(colorScheme), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(.quaternary))
                 .contentShape(Rectangle())
-                .simultaneousGesture(createGesture)
+                .onLongPressGesture(minimumDuration: 1.0, maximumDistance: 12) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    isCreateMode = true
+                }
             }
             .padding()
         }
+        .background(DWColors.background(colorScheme).ignoresSafeArea())
+        .scrollDisabled(isCreateMode)
         .scrollIndicators(.hidden)
     }
 
@@ -40,8 +51,7 @@ struct TimelineView: View {
             Spacer()
             if let next = tasks.first(where: { !$0.isDone }) { Text(next.title).lineLimit(1).foregroundStyle(.secondary) }
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .dailyWidgetCard()
     }
 
     private var grid: some View {
@@ -58,31 +68,50 @@ struct TimelineView: View {
     private var tasks: some View {
         ForEach(store.todayTasks) { occurrence in
             TimelineTaskCard(occurrence: occurrence, pixelsPerMinute: hourHeight / 60, selectedTask: $selectedTask, showingEditor: $showingEditor)
-                .offset(x: 58, y: y(for: occurrence.start))
                 .frame(height: max(34, CGFloat(occurrence.end - occurrence.start) * hourHeight / 60), alignment: .top)
+                .padding(.leading, 58).padding(.trailing, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .offset(y: y(for: occurrence.start))
         }
     }
 
-    private var createGesture: some Gesture {
-        LongPressGesture(minimumDuration: 1.0, maximumDistance: 14)
-            .updating($pressState) { value, state, _ in state = value }
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+    private var createModeBanner: some View {
+        HStack { Image(systemName: "hand.draw.fill"); Text(store.language == "en" ? "Create mode · drag a time range" : "创建模式 · 拖动选择时间段").font(.subheadline.weight(.semibold)); Spacer(); Button(store.language == "en" ? "Cancel" : "取消") { cancelCreation() } }
+            .foregroundStyle(.indigo).padding(.horizontal, 14).padding(.vertical, 10).background(.indigo.opacity(0.12), in: Capsule())
+    }
+
+    private var creationOverlay: some View {
+        Color.indigo.opacity(0.035).contentShape(Rectangle()).gesture(createDragGesture)
+    }
+
+    private var createDragGesture: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .local)
             .onChanged { value in
-                guard case .second(true, let drag?) = value else { return }
-                let start = snap(minute(at: drag.startLocation.y))
-                let end = max(start + 15, snap(minute(at: drag.location.y)))
+                let start = snap(minute(at: value.startLocation.y))
+                let end = max(start + 15, snap(minute(at: value.location.y)))
                 draftStart = min(start, end - 15); draftEnd = max(start + 15, end)
             }
             .onEnded { value in
-                guard case .second(true, let drag?) = value else { draftStart = nil; draftEnd = nil; return }
-                let start = snap(minute(at: drag.startLocation.y)); let end = max(start + 15, snap(minute(at: drag.location.y)));
+                let start = snap(minute(at: value.startLocation.y)); let end = max(start + 15, snap(minute(at: value.location.y)))
                 let task = PlannerTask.empty(date: store.dateKey, start: min(start, end - 15), end: max(start + 15, end), deviceID: UserDefaults.standard.string(forKey: "deviceID") ?? "iphone")
-                draftStart = nil; draftEnd = nil; selectedTask = task; showingQuickCreate = true
+                draftStart = nil; draftEnd = nil; isCreateMode = false; selectedTask = task; showingQuickCreate = true
             }
     }
 
+    @ViewBuilder private var currentTimeIndicator: some View {
+        if store.dateKey == Date().dayKey {
+            SwiftUI.TimelineView(.periodic(from: .now, by: 60)) { context in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: context.date)
+                let minute = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+                HStack(spacing: 0) { Circle().frame(width: 8, height: 8); Rectangle().frame(height: 2) }.foregroundStyle(.red).offset(x: 54, y: y(for: minute) - 4)
+            }
+        }
+    }
+
+    private func cancelCreation() { draftStart = nil; draftEnd = nil; isCreateMode = false }
+
     private func draftBlock(start: Int, end: Int) -> some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.indigo.opacity(0.25)).overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.indigo.opacity(0.5))).offset(x: 58, y: y(for: start)).frame(height: max(34, CGFloat(end - start) * hourHeight / 60))
+        RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.indigo.opacity(0.25)).overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.indigo.opacity(0.5))).frame(height: max(34, CGFloat(end - start) * hourHeight / 60)).padding(.leading, 58).padding(.trailing, 10).frame(maxWidth: .infinity, alignment: .leading).offset(y: y(for: start))
     }
     private func y(for minute: Int) -> CGFloat { CGFloat(minute - startHour * 60) * hourHeight / 60 }
     private func minute(at y: CGFloat) -> Int { min(endHour * 60, max(startHour * 60, Int(y / hourHeight * 60) + startHour * 60)) }
@@ -113,7 +142,7 @@ private struct TimelineTaskCard: View {
         .gesture(moveGesture)
     }
 
-    private var color: Color { ["health": .green, "home": .orange, "social": .pink, "learning": .purple, "errands": .brown][occurrence.category] ?? .blue }
+    private var color: Color { DWColors.taskColor(mode: occurrence.task.colorMode, token: occurrence.task.colorToken, category: occurrence.category) }
     private func time(_ minute: Int) -> String { String(format: "%02d:%02d", minute / 60, minute % 60) }
     private var moveGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.25).sequenced(before: DragGesture())

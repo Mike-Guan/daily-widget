@@ -55,7 +55,27 @@ test('newer task record wins a sync collision deterministically', () => {
   assert.equal(result.conflict, true);
 });
 
-test('store migrates legacy day files, exports, and pulls shared records', () => {
+test('task color defaults to category and supports a stable custom token', () => {
+  const automatic = Task.normalizeTask({ id: 'auto-color', title: 'Walk', category: 'health' });
+  assert.equal(automatic.colorMode, 'category');
+  assert.equal(automatic.colorToken, null);
+  assert.equal(Task.resolveTaskColor(automatic).id, 'mint');
+
+  const custom = Task.normalizeTask({ id: 'custom-color', title: 'Walk', category: 'health', colorMode: 'custom', colorToken: 'violet' });
+  assert.equal(custom.colorMode, 'custom');
+  assert.equal(Task.resolveTaskColor(custom).id, 'violet');
+});
+
+test('moving a one-off overnight task to tomorrow preserves its time range', () => {
+  const task = Task.normalizeTask({ id: 'move-night', title: 'Night train', date: '2026-08-21', start: 23 * 60, end: 60 });
+  const moved = Task.updateTask(task, { date: Task.addDays(task.date, 1), start: task.start, end: task.end }, { now: '2026-08-21T12:00:00.000Z', deviceId: 'mac' });
+  assert.equal(moved.date, '2026-08-22');
+  assert.equal(moved.start, 1380);
+  assert.equal(moved.end, 1500);
+  assert.equal(Task.occurrencesFor(moved, '2026-08-23')[0].end, 60);
+});
+
+test('store migrates legacy day files, exports, and pulls shared records', async () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'daily-widget-test-'));
   try {
     const root = path.join(temp, 'data');
@@ -72,12 +92,12 @@ test('store migrates legacy day files, exports, and pulls shared records', () =>
     const output = store.exportDate('2026-08-20');
     assert.match(output.markdown, /旧任务/);
     assert.equal(fs.existsSync(output.filePath), true);
-    store.setSyncFolder(cloud);
-    assert.equal(store.syncNow().ok, true);
+    await store.setSyncFolder(cloud);
+    assert.equal((await store.syncNow()).ok, true);
     const secondRoot = path.join(temp, 'second-data');
     const second = new TaskStore({ rootDirectory: secondRoot, exportDirectory: path.join(temp, 'second-exports'), deviceId: 'phone-test' });
-    second.init(); second.setSyncFolder(cloud);
-    const sync = second.syncNow();
+    second.init(); await second.setSyncFolder(cloud);
+    const sync = await second.syncNow();
     assert.equal(sync.ok, true);
     assert.equal(second.queryDate('2026-08-20')[0].title, '旧任务');
     store.dispose(); second.dispose();
@@ -86,7 +106,7 @@ test('store migrates legacy day files, exports, and pulls shared records', () =>
   }
 });
 
-test('store keeps a conflict backup and synchronizes a tombstone', () => {
+test('store keeps a conflict backup and synchronizes a tombstone', async () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'daily-widget-conflict-'));
   let local;
   let remote;
@@ -98,18 +118,18 @@ test('store keeps a conflict backup and synchronizes a tombstone', () => {
     remote = new TaskStore({ rootDirectory: remoteRoot, exportDirectory: path.join(temp, 'remote-exports'), deviceId: 'phone' });
     local.init(); remote.init();
     const initial = local.saveTask({ id: 'conflicted', date: '2026-08-20', start: 600, end: 630, title: 'Original' });
-    local.setSyncFolder(cloud); local.syncNow();
-    remote.setSyncFolder(cloud); remote.syncNow();
+    await local.setSyncFolder(cloud); await local.syncNow();
+    await remote.setSyncFolder(cloud); await remote.syncNow();
     writeJsonAtomic(local.taskPath('conflicted'), Object.assign({}, initial, { title: 'Mac edit', updatedAt: '2030-08-20T01:00:00.000Z' }));
     writeJsonAtomic(remote.taskPath('conflicted'), Object.assign({}, remote.readTask('conflicted'), { title: 'Phone edit', updatedAt: '2030-08-20T02:00:00.000Z' }));
-    remote.syncNow();
-    const result = local.syncNow();
+    await remote.syncNow();
+    const result = await local.syncNow();
     assert.equal(result.conflicts, 1);
     assert.equal(local.readTask('conflicted').title, 'Phone edit');
     assert.equal(fs.readdirSync(path.join(localRoot, 'backups', 'conflicts')).length, 1);
     const tombstone = remote.deleteTask('conflicted');
     writeJsonAtomic(remote.taskPath('conflicted'), Object.assign({}, tombstone, { deletedAt: '2030-08-20T03:00:00.000Z', updatedAt: '2030-08-20T03:00:00.000Z' }));
-    remote.syncNow(); local.syncNow();
+    await remote.syncNow(); await local.syncNow();
     assert.notEqual(local.readTask('conflicted').deletedAt, null);
   } finally {
     local?.dispose(); remote?.dispose();

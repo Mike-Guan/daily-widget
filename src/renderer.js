@@ -9,8 +9,10 @@
       brandTagline: 'Make space for what matters', workspace: 'Workspace', todayPlan: 'Today', inbox: 'Inbox', rituals: 'Rituals', todayFocus: 'Top 3', dailyReview: 'Daily review', setSyncFolder: 'Set sync folder', today: 'Today', sync: 'Sync', exportMarkdown: 'Export Markdown', quickAdd: 'Quick add', quickPlaceholder: 'e.g. tomorrow 9:30 run 45m', nowNext: 'Now / next', todayDone: 'Done today', timeline: 'Timeline', timelineHint: 'Drag on empty time to schedule · 15 min snap', manage: 'Manage', add: '＋ Add', wrapUp: 'Wrap up', reviewAction: 'Review unfinished tasks for tomorrow', todayHeading: 'Today', makeSpace: 'Leave room for yourself today', easyStart: 'Easy start', inProgress: 'In progress · until {time}', next: 'Up next · {time}', task: 'Task', newTask: 'New task', editTask: 'Edit task', title: 'Task', date: 'Date', category: 'Category', start: 'Start', end: 'End', repeat: 'Repeat', focus: 'Make this a top task', link: 'Link', notes: 'Notes', delete: 'Delete', cancel: 'Cancel', save: 'Save task', review: 'Daily review', reviewIntro: 'Unfinished tasks are not a burden. Give each one a good home.', tomorrow: 'Move to tomorrow', moveInbox: 'Move to inbox', noReview: 'Your day is already wrapped up nicely.', localOnly: 'Local first · sync not enabled', connected: 'Connected · waiting for first sync', synced: 'Synced · {time}', syncIssue: 'Sync needs attention · {error}', focusEmpty: 'Choose up to three things that truly matter today.', inboxEmpty: 'Capture it first. Decide when later.', untitled: 'Untitled task', recurring: 'Repeats', noTasks: 'Leave room for yourself today', reviewClear: 'Clear', reviewPending: '{count} pending', syncedToast: 'Sync complete · ↑{push} ↓{pull}', chooseFolder: 'Choose a shared folder first.', browserSync: 'Browser mode cannot access a shared folder. Use the desktop or iPhone app.', taskSaved: 'Saved', taskDeleted: 'Deleted', taskScheduled: 'Scheduled on the timeline', addedSchedule: 'Added to your schedule', addedInbox: 'Added to inbox', focusLimit: 'You can choose up to three top tasks.', writeTask: 'Write what you want to do, then press add.', titleRequired: 'Give this task a name first.', bothTimes: 'Enter both a start and end time.', validRange: 'End time must be after start time.', recurringDate: 'A recurring task needs a start date.', focusManage: 'Use ☆ / ★ on the timeline to manage your top tasks.', themeSystem: 'Following system theme', themeDark: 'Dark theme', themeLight: 'Light theme', remoteChange: 'Updates from another device detected', dragTitle: 'Drag on empty time to schedule', current: 'In progress', nextTask: 'Up next', personal: 'Personal', health: 'Health', home: 'Home', social: 'Social', learning: 'Learning', errands: 'Errands', none: 'Does not repeat', daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week', taskPlaceholder: 'What needs doing?', notesPlaceholder: 'A note for future you', linkPlaceholder: 'https://…', quickTimeExample: 'e.g. tomorrow 9:30 run 45m',
     },
   };
-  Object.assign(copy.zh, { inboxDragHint: '拖动任务到时间轴的具体时间，或点 ＋ 按默认空档排入今天', scheduleToday: '排入今天', inboxOverview: '{count} 项未排期事项', inboxPage: '收集箱 · 全部事项', deleteTask: '删除任务', exportHint: '选择要导出的日期范围。', exportStart: '开始日期', exportEnd: '结束日期', exportRange: '导出选定范围', exported: '已导出并复制到剪贴板', exportInvalid: '请选择有效的日期范围，且结束日期不能早于开始日期。', timelineHint: '拖出时间框后直接输入名称 · 15 分钟吸附', continuesFromPrevious: '从前一天延续', allInbox: '收集箱', inboxPageHint: '先捕捉，再决定什么时候做。', topPageHint: '只留下今天真正重要的事。', reviewPageHint: '用轻量回顾为今天收尾。', completed: '已完成', incomplete: '未完成', planned: '已计划', moveTomorrow: '移到明天', reviewEmpty: '今天还没有已排期的任务。', encouragementEmpty: '今天尚未排定事项。留一点空间，也是一种安排。', encouragementDone: '太棒了，今天安排的事项已经全部完成。', encouragementProgress: '做得很好，已经完成 {done} 项；剩下的也可以从容安排。', edit: '编辑', top3Page: '今日重点' });
-  Object.assign(copy.en, { inboxDragHint: 'Drag a task to an exact time, or press + to schedule it today', scheduleToday: 'Schedule today', inboxOverview: '{count} unscheduled items', inboxPage: 'Inbox · all items', deleteTask: 'Delete task', exportHint: 'Choose the date range to export.', exportStart: 'Start date', exportEnd: 'End date', exportRange: 'Export selected range', exported: 'Exported and copied to clipboard', exportInvalid: 'Choose a valid range; the end date cannot be before the start date.', timelineHint: 'Draw a time block, then type its name · 15 min snap', continuesFromPrevious: 'Continues from previous day', allInbox: 'Inbox', inboxPageHint: 'Capture first. Decide when later.', topPageHint: 'Keep only what truly matters today.', reviewPageHint: 'A light reflection to close the day.', completed: 'Completed', incomplete: 'Unfinished', planned: 'Planned', moveTomorrow: 'Move to tomorrow', reviewEmpty: 'No scheduled tasks for this day yet.', encouragementEmpty: 'Nothing is scheduled today. Leaving space is a valid plan.', encouragementDone: 'Wonderful — every planned task is complete.', encouragementProgress: 'Nice work: {done} task(s) complete. The rest can be arranged with care.', edit: 'Edit', top3Page: 'Top 3' });
+  Object.assign(copy.zh, { inboxDragHint: '拖动任务到时间轴的具体时间，或点 ＋ 按默认空档排入今天', scheduleToday: '排入今天', inboxOverview: '{count} 项未排期事项', inboxPage: '收集箱 · 全部事项', deleteTask: '删除任务', exportHint: '选择要导出的日期范围。', exportStart: '开始日期', exportEnd: '结束日期', exportRange: '导出选定范围', exported: '已导出并复制到剪贴板', exportInvalid: '请选择有效的日期范围，且结束日期不能早于开始日期。', timelineHint: '在空白时间轴上拖动创建任务 · 自动按 15 分钟对齐', continuesFromPrevious: '从前一天延续', allInbox: '收集箱', inboxPageHint: '先捕捉，再决定什么时候做。', topPageHint: '只留下今天真正重要的事。', reviewPageHint: '用轻量回顾为今天收尾。', completed: '已完成', incomplete: '未完成', planned: '已计划', moveTomorrow: '移到明天', reviewEmpty: '今天还没有已排期的任务。', encouragementEmpty: '今天尚未排定事项。留一点空间，也是一种安排。', encouragementDone: '太棒了，今天安排的事项已经全部完成。', encouragementProgress: '做得很好，已经完成 {done} 项；剩下的也可以从容安排。', edit: '编辑', top3Page: '今日重点', syncing: '正在同步…', syncFileUnavailable: 'iCloud 中有任务文件尚未下载完成。请在 Finder 中对同步文件夹选择“立即下载”，然后重试。' });
+  Object.assign(copy.en, { inboxDragHint: 'Drag a task to an exact time, or press + to schedule it today', scheduleToday: 'Schedule today', inboxOverview: '{count} unscheduled items', inboxPage: 'Inbox · all items', deleteTask: 'Delete task', exportHint: 'Choose the date range to export.', exportStart: 'Start date', exportEnd: 'End date', exportRange: 'Export selected range', exported: 'Exported and copied to clipboard', exportInvalid: 'Choose a valid range; the end date cannot be before the start date.', timelineHint: 'Drag on an empty time range to create a task · snaps to 15 min', continuesFromPrevious: 'Continues from previous day', allInbox: 'Inbox', inboxPageHint: 'Capture first. Decide when later.', topPageHint: 'Keep only what truly matters today.', reviewPageHint: 'A light reflection to close the day.', completed: 'Completed', incomplete: 'Unfinished', planned: 'Planned', moveTomorrow: 'Move to tomorrow', reviewEmpty: 'No scheduled tasks for this day yet.', encouragementEmpty: 'Nothing is scheduled today. Leaving space is a valid plan.', encouragementDone: 'Wonderful — every planned task is complete.', encouragementProgress: 'Nice work: {done} task(s) complete. The rest can be arranged with care.', edit: 'Edit', top3Page: 'Top 3', syncing: 'Syncing…', syncFileUnavailable: 'A task file has not finished downloading from iCloud. In Finder, choose Download Now for the sync folder, then retry.' });
+  Object.assign(copy.zh, { color: '颜色', colorAuto: '跟随分类', colorIndigo: '靛蓝', colorSky: '天蓝', colorMint: '薄荷绿', colorAmber: '琥珀黄', colorRose: '玫瑰粉', colorViolet: '紫罗兰', colorCoral: '珊瑚橙', openLink: '打开链接', dropToInbox: '松开即可放回收集箱', calendar: '选择日期', previousMonth: '上个月', nextMonth: '下个月', pageInboxTitle: '收集箱', pageFocusTitle: '今日重点', pageReviewTitle: '日末回顾' });
+  Object.assign(copy.en, { color: 'Color', colorAuto: 'Follow category', colorIndigo: 'Indigo', colorSky: 'Sky', colorMint: 'Mint', colorAmber: 'Amber', colorRose: 'Rose', colorViolet: 'Violet', colorCoral: 'Coral', openLink: 'Open link', dropToInbox: 'Release to move to Inbox', calendar: 'Choose date', previousMonth: 'Previous month', nextMonth: 'Next month', pageInboxTitle: 'Inbox', pageFocusTitle: 'Top 3', pageReviewTitle: 'Daily review' });
   function language() { return state.settings && state.settings.language === 'en' ? 'en' : 'zh'; }
   function t(key, values) { let text = (copy[language()] && copy[language()][key]) || copy.zh[key] || key; Object.entries(values || {}).forEach(([name, value]) => { text = text.replace(`{${name}}`, String(value)); }); return text; }
   const START_HOUR = 0;
@@ -19,18 +21,40 @@
   const PIXELS_PER_MINUTE = HOUR_HEIGHT / 60;
   const DAY_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
   const $ = (selector) => document.querySelector(selector);
-  const state = { date: Task.formatDateKey(new Date()), tasks: [], inbox: [], settings: null, editing: null, activeView: 'today', dragInboxId: null };
-  const categoryMap = new Map(Task.CATEGORY_DEFINITIONS.map((category) => [category.id, category]));
+  const state = { date: Task.formatDateKey(new Date()), tasks: [], inbox: [], settings: null, editing: null, activeView: 'today', dragInboxId: null, syncing: false };
+  let calendarMonth = new Date();
 
   const timeline = $('#timeline');
   const toast = $('#toast');
   const taskDialog = $('#taskDialog');
   const reviewDialog = $('#reviewDialog');
   const exportDialog = $('#exportDialog');
+  const calendarDialog = $('#calendarDialog');
 
   function dateForKey(dateKey) { return Task.dateFromKey(dateKey); }
   function isToday() { return state.date === Task.formatDateKey(new Date()); }
   function formattedDate() { return dateForKey(state.date).toLocaleDateString(language() === 'en' ? 'en-US' : 'zh-CN', { weekday: 'long', month: 'long', day: 'numeric' }); }
+  function calendarLocale() { return language() === 'en' ? 'en-US' : 'zh-CN'; }
+  function renderCalendar() {
+    $('#calendarDialogTitle').textContent = t('calendar');
+    $('#calendarMonthLabel').textContent = calendarMonth.toLocaleDateString(calendarLocale(), { month: 'long', year: 'numeric' });
+    $('#calendarWeekdays').innerHTML = '';
+    for (let index = 0; index < 7; index += 1) $('#calendarWeekdays').appendChild(element('span', null, new Date(2023, 0, 1 + index).toLocaleDateString(calendarLocale(), { weekday: 'short' })));
+    const grid = $('#calendarGrid'); grid.innerHTML = '';
+    const year = calendarMonth.getFullYear(); const month = calendarMonth.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let blank = 0; blank < firstWeekday; blank += 1) grid.appendChild(element('span', 'calendar-day empty'));
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dateKey = Task.formatDateKey(new Date(year, month, day));
+      const button = element('button', `calendar-day${dateKey === state.date ? ' selected' : ''}${dateKey === Task.formatDateKey(new Date()) ? ' today' : ''}`, String(day));
+      button.type = 'button';
+      button.addEventListener('click', async () => { state.date = dateKey; calendarDialog.close(); navigate('today'); await reload(); });
+      grid.appendChild(button);
+    }
+  }
+  function openCalendar() { const selected = dateForKey(state.date); calendarMonth = new Date(selected.getFullYear(), selected.getMonth(), 1); renderCalendar(); calendarDialog.showModal(); }
+  function shiftCalendarMonth(delta) { calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + delta, 1); renderCalendar(); }
   function minuteToY(minute) { return (minute - START_HOUR * 60) * PIXELS_PER_MINUTE; }
   function clampTimelineMinute(minute) { return Math.max(START_HOUR * 60, Math.min(END_HOUR * 60, Math.round(minute / 15) * 15)); }
   function timeInputValue(minute) { return minute === null || minute === undefined ? '' : Task.minuteToTime(minute); }
@@ -58,11 +82,7 @@
 
   function render() {
     translateStatic();
-    renderHeader();
-    renderSummary();
-    renderTimeline();
-    renderFocus();
-    renderInbox();
+    renderNavigation();
     renderSyncStatus();
     renderActiveView();
   }
@@ -70,16 +90,42 @@
   function setActiveView(view) {
     state.activeView = view;
     document.querySelectorAll('[data-view]').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
-    renderActiveView();
+    render();
+  }
+
+  function routeFromHash() {
+    const view = window.location.hash.replace(/^#\/?/, '');
+    return ['today', 'inbox', 'focus', 'review'].includes(view) ? view : 'today';
+  }
+
+  function navigate(view) {
+    const next = ['today', 'inbox', 'focus', 'review'].includes(view) ? view : 'today';
+    if (window.location.hash === `#${next}`) setActiveView(next);
+    else window.location.hash = next;
   }
 
   function renderActiveView() {
     const todayView = state.activeView === 'today';
-    $('#dashboard').hidden = !todayView;
-    $('#workspace').hidden = !todayView;
+    document.querySelectorAll('[data-view]').forEach((item) => item.classList.toggle('active', item.dataset.view === state.activeView));
+    $('#todayPage').hidden = !todayView;
+    $('#todayDateToolbar').hidden = !todayView;
+    $('#routeTitle').hidden = todayView;
     const mount = $('#collectionView');
     mount.hidden = todayView;
-    if (todayView) return;
+    if (todayView) {
+      renderHeader();
+      renderSummary();
+      renderTimeline();
+      renderFocus();
+      renderInbox();
+      return;
+    }
+    const pageMeta = {
+      inbox: [t('pageInboxTitle'), t('inboxPageHint')],
+      focus: [t('pageFocusTitle'), t('topPageHint')],
+      review: [t('pageReviewTitle'), t('reviewPageHint')],
+    }[state.activeView];
+    $('#routeTitle').replaceChildren(element('h1', null, pageMeta[0]), element('p', null, pageMeta[1]));
     mount.innerHTML = '';
     if (state.activeView === 'inbox') renderInboxPage(mount);
     else if (state.activeView === 'focus') renderFocusPage(mount);
@@ -98,7 +144,18 @@
     const main = element('div', 'card-main');
     main.append(element('h3', null, task.title || t('untitled')), element('p', null, options.meta));
     if (task.notes) main.append(element('p', null, task.notes));
+    main.tabIndex = 0;
+    main.setAttribute('role', 'button');
+    main.title = t('editTask');
+    main.addEventListener('click', () => openTaskDialog(task));
+    main.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openTaskDialog(task); } });
     const actions = element('div', 'collection-actions');
+    if (task.url) {
+      const link = element('button', null, '↗');
+      link.title = t('openLink');
+      link.addEventListener('click', () => window.dailyWidget.openLink(task.url));
+      actions.appendChild(link);
+    }
     (options.actions || []).forEach(({ label, primary, onClick }) => { const button = element('button', primary ? 'primary' : '', label); button.addEventListener('click', onClick); actions.appendChild(button); });
     card.append(main, actions);
     return card;
@@ -109,8 +166,7 @@
     const list = element('div', 'view-grid');
     if (!state.inbox.length) list.appendChild(element('div', 'empty-state', t('inboxEmpty')));
     state.inbox.forEach((task) => list.appendChild(collectionCard(task, { meta: t(task.category), actions: [
-      { label: t('edit'), onClick: () => openTaskDialog(task) },
-      { label: '＋', primary: true, onClick: () => scheduleInboxTask(task) },
+      { label: '＋', primary: true, onClick: () => scheduleInboxTask(task, Task.formatDateKey(new Date())) },
     ] })));
     mount.appendChild(list);
   }
@@ -120,7 +176,7 @@
     const list = element('div', 'view-grid');
     const focusTasks = state.tasks.filter((task) => task.focus);
     if (!focusTasks.length) list.appendChild(element('div', 'empty-state', t('focusEmpty')));
-    focusTasks.forEach((task) => list.appendChild(collectionCard(task, { meta: `${Task.minuteToTime(task.start)} – ${Task.minuteToTime(task.end)} · ${t(task.category)}`, actions: [{ label: t('edit'), onClick: () => openTaskDialog(task) }] })));
+    focusTasks.forEach((task) => list.appendChild(collectionCard(task, { meta: `${Task.minuteToTime(task.start)} – ${Task.minuteToTime(task.end)} · ${t(task.category)}` })));
     mount.appendChild(list);
   }
 
@@ -137,8 +193,7 @@
     if (!state.tasks.length) { mount.appendChild(element('div', 'empty-state', t('reviewEmpty'))); return; }
     const columns = element('div', 'review-columns');
     [[t('completed'), complete, true], [t('incomplete'), incomplete, false]].forEach(([label, tasks, isDone]) => { const section = element('section', 'review-section'); section.appendChild(element('h3', null, label)); const list = element('div', 'view-grid'); if (!tasks.length) list.appendChild(element('div', 'empty-state', '—')); tasks.forEach((task) => list.appendChild(collectionCard(task, { meta: `${Task.minuteToTime(task.start)} – ${Task.minuteToTime(task.end)}${task.focus ? ' · ★' : ''}`, actions: isDone ? [{ label: t('edit'), onClick: () => openTaskDialog(task) }] : [
-      { label: t('moveTomorrow'), onClick: async () => { await window.dailyWidget.saveTask(Object.assign({}, task, { date: Task.addDays(state.date, 1) })); await reload(); } },
-      { label: t('moveInbox'), onClick: async () => { await window.dailyWidget.moveToInbox(task.sourceId); await reload(); } },
+      { label: t('moveInbox'), onClick: () => moveTaskToInbox(task) },
     ] }))); section.appendChild(list); columns.appendChild(section); });
     mount.appendChild(columns);
   }
@@ -148,17 +203,25 @@
     document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = t(node.dataset.i18n); });
     document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.placeholder = t(node.dataset.i18nPlaceholder); });
     $('#taskTitle').placeholder = t('taskPlaceholder'); $('#taskNotes').placeholder = t('notesPlaceholder'); $('#taskUrl').placeholder = t('linkPlaceholder');
-    const labels = { taskTitle: 'title', taskDate: 'date', taskCategory: 'category', taskStart: 'start', taskEnd: 'end', taskRecurrence: 'repeat', taskUrl: 'link', taskNotes: 'notes' };
+    const labels = { taskTitle: 'title', taskDate: 'date', taskCategory: 'category', taskColor: 'color', taskStart: 'start', taskEnd: 'end', taskRecurrence: 'repeat', taskUrl: 'link', taskNotes: 'notes' };
     Object.entries(labels).forEach(([id, key]) => { const label = document.querySelector(`label[for="${id}"]`); if (label) label.textContent = t(key); });
     $('#taskFocus').parentElement.lastChild.textContent = ` ${t('focus')}`;
     $('#deleteTask').textContent = t('delete'); $('#cancelTask').textContent = t('cancel'); $('#taskForm .save-btn').textContent = t('save'); $('#reviewDialog .modal-header h3').textContent = t('review'); $('#reviewDialog p').textContent = t('reviewIntro');
+    $('#datePickerButton').title = t('calendar'); $('#datePickerButton').setAttribute('aria-label', t('calendar'));
+    $('#previousMonth').title = t('previousMonth'); $('#previousMonth').setAttribute('aria-label', t('previousMonth'));
+    $('#nextMonth').title = t('nextMonth'); $('#nextMonth').setAttribute('aria-label', t('nextMonth'));
+    $('#calendarToday').textContent = t('today');
     const categorySelect = $('#taskCategory'); [...categorySelect.options].forEach((option) => { option.textContent = t(option.value); });
+    const colorSelect = $('#taskColor'); [...colorSelect.options].forEach((option) => { option.textContent = option.value === 'auto' ? t('colorAuto') : t(`color${option.value[0].toUpperCase()}${option.value.slice(1)}`); });
     const recurrenceSelect = $('#taskRecurrence'); [...recurrenceSelect.options].forEach((option) => { option.textContent = t(option.value); });
   }
 
   function renderHeader() {
     $('#dateHeading').textContent = isToday() ? t('todayHeading') : formattedDate();
     $('#dateSubheading').textContent = isToday() ? `${formattedDate()} · ${t('makeSpace')}` : state.date;
+  }
+
+  function renderNavigation() {
     $('#inboxCount').textContent = String(state.inbox.length);
     $('#reviewCount').textContent = scheduledIncomplete().length ? t('reviewPending', { count: scheduledIncomplete().length }) : t('reviewClear');
   }
@@ -213,19 +276,21 @@
     state.dragInboxId = null;
     if (!task) return;
     const rect = timeline.getBoundingClientRect();
-    const start = clampTimelineMinute(START_HOUR * 60 + (event.clientY - rect.top) / PIXELS_PER_MINUTE);
-    await window.dailyWidget.saveTask(Object.assign({}, task, { date: state.date, start, end: Math.min(END_HOUR * 60, start + 30) }));
+    const duration = 60;
+    const rawStart = clampTimelineMinute(START_HOUR * 60 + (event.clientY - rect.top) / PIXELS_PER_MINUTE);
+    const start = Math.min(rawStart, END_HOUR * 60 - duration);
+    await window.dailyWidget.saveTask(Object.assign({}, task, { date: state.date, start, end: start + duration }));
     await reload(); showToast(t('taskScheduled'));
   }
 
   function buildTask(task) {
-    const category = categoryMap.get(task.category) || categoryMap.get('personal');
+    const color = Task.resolveTaskColor(task);
     const card = element('article', `task${task.done ? ' done' : ''}`);
     card.dataset.id = task.sourceId;
     card.style.top = `${minuteToY(task.start)}px`;
     card.style.height = `${Math.max(30, (task.end - task.start) * PIXELS_PER_MINUTE)}px`;
-    card.style.background = category.fill;
-    card.style.borderColor = category.border;
+    card.style.background = color.fill;
+    card.style.borderColor = color.border;
     const top = element('div', 'task-top');
     const check = document.createElement('input'); check.type = 'checkbox'; check.className = 'task-check'; check.checked = task.done; check.title = '完成任务';
     check.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -235,7 +300,7 @@
     const actions = element('div', 'task-actions');
     const focus = element('button', 'task-action', task.focus ? '★' : '☆'); focus.type = 'button'; focus.title = task.focus ? '取消重点' : '设为重点';
     focus.addEventListener('pointerdown', (event) => event.stopPropagation()); focus.addEventListener('click', () => toggleFocus(task)); actions.appendChild(focus);
-    if (task.url) { const link = element('button', 'task-action', '↗'); link.type = 'button'; link.title = '打开链接'; link.addEventListener('pointerdown', (event) => event.stopPropagation()); link.addEventListener('click', () => window.dailyWidget.openLink(task.url)); actions.appendChild(link); }
+    if (task.url) { const link = element('button', 'task-action', '↗'); link.type = 'button'; link.title = t('openLink'); link.addEventListener('pointerdown', (event) => event.stopPropagation()); link.addEventListener('click', () => window.dailyWidget.openLink(task.url)); actions.appendChild(link); }
     const remove = element('button', 'task-action', '×'); remove.type = 'button'; remove.title = t('deleteTask'); remove.addEventListener('pointerdown', (event) => event.stopPropagation()); remove.addEventListener('click', async () => { await window.dailyWidget.deleteTask(task.sourceId); await reload(); showToast(t('taskDeleted')); }); actions.appendChild(remove);
     top.append(check, title, actions);
     const meta = element('div', 'task-meta', `${taskTimeLabel(task, task.start, task.end)} · ${t(task.category)}${task.recurrence !== 'none' ? ` · ${t('recurring')}` : ''}`);
@@ -251,7 +316,8 @@
     const rect = event.currentTarget.getBoundingClientRect();
     const start = clampTimelineMinute(START_HOUR * 60 + (event.clientY - rect.top) / PIXELS_PER_MINUTE);
     const category = Task.CATEGORY_DEFINITIONS[state.tasks.length % Task.CATEGORY_DEFINITIONS.length];
-    const preview = element('div', 'task preview'); preview.style.top = `${minuteToY(start)}px`; preview.style.height = '30px'; preview.style.background = category.fill; preview.style.borderColor = category.border; timeline.appendChild(preview);
+    const previewColor = Task.resolveTaskColor({ category: category.id, colorMode: 'category' });
+    const preview = element('div', 'task preview'); preview.style.top = `${minuteToY(start)}px`; preview.style.height = '30px'; preview.style.background = previewColor.fill; preview.style.borderColor = previewColor.border; timeline.appendChild(preview);
     let finalStart = start; let finalEnd = Math.min(END_HOUR * 60, start + 30);
     function onMove(move) { const rawMinute = Math.round((move.clientY - rect.top) / PIXELS_PER_MINUTE / 15) * 15; const minute = Math.max(START_HOUR * 60, Math.min(END_HOUR * 120, rawMinute)); finalStart = Math.min(start, Math.min(END_HOUR * 60, minute)); finalEnd = Math.max(start + 15, minute); finalEnd = Math.min(END_HOUR * 120, finalEnd); preview.style.top = `${minuteToY(finalStart)}px`; preview.style.height = `${Math.max(30, (Math.min(finalEnd, END_HOUR * 60) - finalStart) * PIXELS_PER_MINUTE)}px`; }
     async function onUp() { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); preview.remove(); beginInlineTask({ id: Task.createId(), date: state.date, start: finalStart, end: finalEnd, title: '', category: category.id, recurrence: 'none', focus: false, notes: '', url: '', done: false }); }
@@ -286,9 +352,28 @@
     if (task.isContinuation) return;
     event.preventDefault();
     const originalStart = task.sourceStart ?? task.start; const duration = (task.sourceEnd ?? task.end) - originalStart; const startY = event.clientY;
+    const inboxPanel = $('#inboxPanel');
+    function isOverInbox(move) {
+      const rect = inboxPanel.getBoundingClientRect();
+      return move.clientX >= rect.left && move.clientX <= rect.right && move.clientY >= rect.top && move.clientY <= rect.bottom;
+    }
     card.classList.add('dragging');
-    function onMove(move) { let start = clampTimelineMinute(originalStart + (move.clientY - startY) / PIXELS_PER_MINUTE); start = Math.min(start, END_HOUR * 60 - 15); const end = start + duration; card.style.top = `${minuteToY(start)}px`; card.style.height = `${Math.max(30, (Math.min(end, END_HOUR * 60) - start) * PIXELS_PER_MINUTE)}px`; card.querySelector('.task-meta').textContent = `${taskTimeLabel(Object.assign({}, task, { spansNextDay: end > END_HOUR * 60 }), start, end)} · ${t(task.category)}`; card.dataset.nextStart = String(start); }
-    async function onUp() { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); const start = Number(card.dataset.nextStart || originalStart); card.classList.remove('dragging'); delete card.dataset.nextStart; if (start !== originalStart) { await window.dailyWidget.updateOccurrence(task.sourceId, sourceOccurrenceDate(task), { start, end: start + duration }); await reload(); } }
+    function onMove(move) {
+      const overInbox = isOverInbox(move);
+      inboxPanel.classList.toggle('drop-active', overInbox);
+      $('#inboxContext').textContent = overInbox ? t('dropToInbox') : inboxContextText();
+      if (overInbox) return;
+      let start = clampTimelineMinute(originalStart + (move.clientY - startY) / PIXELS_PER_MINUTE); start = Math.min(start, END_HOUR * 60 - 15); const end = start + duration; card.style.top = `${minuteToY(start)}px`; card.style.height = `${Math.max(30, (Math.min(end, END_HOUR * 60) - start) * PIXELS_PER_MINUTE)}px`; card.querySelector('.task-meta').textContent = `${taskTimeLabel(Object.assign({}, task, { spansNextDay: end > END_HOUR * 60 }), start, end)} · ${t(task.category)}`; card.dataset.nextStart = String(start);
+    }
+    async function onUp(up) {
+      document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp);
+      const droppedInInbox = isOverInbox(up);
+      inboxPanel.classList.remove('drop-active');
+      $('#inboxContext').textContent = inboxContextText();
+      const start = Number(card.dataset.nextStart || originalStart); card.classList.remove('dragging'); delete card.dataset.nextStart;
+      if (droppedInInbox) { await moveTaskToInbox(task); return; }
+      if (start !== originalStart) { await window.dailyWidget.updateOccurrence(task.sourceId, sourceOccurrenceDate(task), { start, end: start + duration }); await reload(); }
+    }
     document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
   }
 
@@ -303,30 +388,40 @@
     const container = $('#focusList'); container.innerHTML = '';
     const focusTasks = state.tasks.filter((task) => task.focus);
     if (!focusTasks.length) { container.appendChild(element('div', 'empty-state', t('focusEmpty'))); return; }
-    focusTasks.slice(0, 3).forEach((task) => { const item = element('div', 'focus-item'); const dot = element('i', 'category-dot'); dot.style.background = categoryMap.get(task.category).border; const text = element('span', null, task.title || '未命名任务'); if (task.done) text.style.textDecoration = 'line-through'; item.append(dot, text); container.appendChild(item); });
+    focusTasks.slice(0, 3).forEach((task) => { const item = element('div', 'focus-item'); const dot = element('i', 'category-dot'); dot.style.background = Task.resolveTaskColor(task).border; const text = element('span', null, task.title || t('untitled')); if (task.done) text.style.textDecoration = 'line-through'; item.append(dot, text); container.appendChild(item); });
   }
 
   function renderInbox() {
     const container = $('#inboxList'); container.innerHTML = '';
-    const isInboxView = state.activeView === 'inbox';
-    container.classList.toggle('expanded', isInboxView);
-    $('#inboxPanelTitle').textContent = isInboxView ? t('inboxPage') : t('inbox');
-    $('#inboxContext').textContent = state.inbox.length ? t('inboxOverview', { count: state.inbox.length }) : '';
+    container.classList.remove('expanded');
+    $('#inboxPanelTitle').textContent = t('inbox');
+    $('#inboxContext').textContent = inboxContextText();
     if (!state.inbox.length) { container.appendChild(element('div', 'empty-state', t('inboxEmpty'))); return; }
-    (isInboxView ? state.inbox : state.inbox.slice(0, 6)).forEach((task) => { const row = element('div', 'inbox-item'); row.draggable = true; row.title = t('inboxDragHint'); row.addEventListener('dragstart', (event) => { state.dragInboxId = task.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', task.id); row.classList.add('drag-source'); }); row.addEventListener('dragend', () => { state.dragInboxId = null; row.classList.remove('drag-source'); document.querySelectorAll('.grid-hit').forEach((target) => target.classList.remove('drop-active')); }); const title = element('strong', null, task.title || t('untitled')); const edit = element('button', null, '⋯'); edit.title = t('editTask'); edit.addEventListener('click', () => openTaskDialog(task)); const schedule = element('button', null, '＋'); schedule.title = t('scheduleToday'); schedule.addEventListener('click', () => scheduleInboxTask(task)); row.append(title, edit, schedule); container.appendChild(row); });
+    state.inbox.slice(0, 6).forEach((task) => { const row = element('div', 'inbox-item'); row.draggable = true; row.title = t('inboxDragHint'); row.addEventListener('dragstart', (event) => { state.dragInboxId = task.id; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', task.id); row.classList.add('drag-source'); }); row.addEventListener('dragend', () => { state.dragInboxId = null; row.classList.remove('drag-source'); document.querySelectorAll('.grid-hit').forEach((target) => target.classList.remove('drop-active')); }); const title = element('strong', null, task.title || t('untitled')); const edit = element('button', null, '⋯'); edit.title = t('editTask'); edit.addEventListener('click', () => openTaskDialog(task)); const schedule = element('button', null, '＋'); schedule.title = t('scheduleToday'); schedule.addEventListener('click', () => scheduleInboxTask(task)); row.append(title, edit, schedule); container.appendChild(row); });
   }
+
+  function inboxContextText() { return state.inbox.length ? t('inboxOverview', { count: state.inbox.length }) : ''; }
 
   function renderSyncStatus() {
     const status = $('#syncStatus'); const settings = state.settings || {};
     if (!settings.syncFolder) { status.textContent = t('localOnly'); status.className = 'sync-status'; return; }
-    if (settings.lastSyncError) { status.textContent = t('syncIssue', { error: settings.lastSyncError }); status.className = 'sync-status warn'; return; }
+    if (settings.lastSyncError) { const error = settings.lastSyncErrorCode === 'SYNC_FILE_UNAVAILABLE' ? t('syncFileUnavailable') : settings.lastSyncError; status.textContent = t('syncIssue', { error }); status.className = 'sync-status warn'; return; }
     status.textContent = settings.lastSyncAt ? t('synced', { time: new Date(settings.lastSyncAt).toLocaleTimeString(language() === 'en' ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' }) }) : t('connected'); status.className = 'sync-status ok';
   }
 
-  async function scheduleInboxTask(task) {
-    const now = new Date(); const defaultStart = isToday() ? clampTimelineMinute(now.getHours() * 60 + now.getMinutes()) : 9 * 60;
-    await window.dailyWidget.saveTask(Object.assign({}, task, { date: state.date, start: defaultStart, end: defaultStart + 30 }));
+  async function scheduleInboxTask(task, dateKey) {
+    const targetDate = dateKey || state.date;
+    const duration = 60;
+    const now = new Date(); const requestedStart = targetDate === Task.formatDateKey(now) ? clampTimelineMinute(now.getHours() * 60 + now.getMinutes()) : 9 * 60;
+    const defaultStart = Math.min(requestedStart, END_HOUR * 60 - duration);
+    await window.dailyWidget.saveTask(Object.assign({}, task, { date: targetDate, start: defaultStart, end: defaultStart + duration }));
     await reload(); showToast(t('taskScheduled'));
+  }
+
+  async function moveTaskToInbox(task) {
+    await window.dailyWidget.moveToInbox(task.sourceId || task.id);
+    await reload();
+    showToast(t('addedInbox'));
   }
 
   async function toggleFocus(task) {
@@ -336,11 +431,11 @@
 
   function setField(id, value) { $(id).value = value === null || value === undefined ? '' : value; }
   function openTaskDialog(task) {
-    state.editing = task && task.sourceId ? task : null;
+    state.editing = task && (task.sourceId || task.id) ? Object.assign({}, task, { sourceId: task.sourceId || task.id }) : null;
     $('#taskDialogTitle').textContent = state.editing ? t('editTask') : t('newTask');
     setField('#taskId', state.editing ? state.editing.sourceId : '');
     setField('#taskDateOriginal', state.editing ? (state.editing.sourceDate || state.editing.date) : '');
-    setField('#taskTitle', task && task.title); setField('#taskDate', task && (task.sourceDate || task.date)); setField('#taskStart', timeInputValue(task && (task.sourceStart ?? task.start))); setField('#taskEnd', timeInputValue(task && (task.sourceEnd ?? task.end))); setField('#taskCategory', (task && task.category) || 'personal'); setField('#taskRecurrence', (task && task.recurrence) || 'none'); setField('#taskUrl', task && task.url); setField('#taskNotes', task && task.notes);
+    setField('#taskTitle', task && task.title); setField('#taskDate', task && (task.sourceDate || task.date)); setField('#taskStart', timeInputValue(task && (task.sourceStart ?? task.start))); setField('#taskEnd', timeInputValue(task && (task.sourceEnd ?? task.end))); setField('#taskCategory', (task && task.category) || 'personal'); setField('#taskColor', task && task.colorMode === 'custom' ? task.colorToken : 'auto'); setField('#taskRecurrence', (task && task.recurrence) || 'none'); setField('#taskUrl', task && task.url); setField('#taskNotes', task && task.notes);
     $('#taskFocus').checked = Boolean(task && task.focus); $('#deleteTask').style.visibility = state.editing ? 'visible' : 'hidden';
     taskDialog.showModal(); $('#taskTitle').focus();
   }
@@ -355,13 +450,14 @@
     const recurrence = $('#taskRecurrence').value;
     if (recurrence !== 'none' && !date) { showToast(t('recurringDate')); return; }
     if ($('#taskFocus').checked && !state.editing?.focus && state.tasks.filter((task) => task.focus).length >= 3) { showToast(t('focusLimit')); return; }
-    const payload = { id: id || undefined, title, date, start, end, category: $('#taskCategory').value, recurrence, focus: $('#taskFocus').checked, url: $('#taskUrl').value, notes: $('#taskNotes').value };
+    const selectedColor = $('#taskColor').value;
+    const payload = { id: id || undefined, title, date, start, end, category: $('#taskCategory').value, colorMode: selectedColor === 'auto' ? 'category' : 'custom', colorToken: selectedColor === 'auto' ? null : selectedColor, recurrence, focus: $('#taskFocus').checked, url: $('#taskUrl').value, notes: $('#taskNotes').value };
     if (state.editing && state.editing.recurrence !== 'none') payload.date = $('#taskDateOriginal').value;
     await window.dailyWidget.saveTask(payload);
     taskDialog.close(); await reload(); showToast(t('taskSaved'));
   }
 
-  async function deleteEditingTask() { if (!state.editing) return; await window.dailyWidget.deleteTask(state.editing.sourceId); taskDialog.close(); await reload(); showToast(t('taskDeleted')); }
+  async function deleteEditingTask() { if (!state.editing) return; await window.dailyWidget.deleteTask(state.editing.sourceId || state.editing.id); taskDialog.close(); await reload(); showToast(t('taskDeleted')); }
   function closeTaskDialog() { taskDialog.close(); }
 
   function openReview() {
@@ -379,22 +475,50 @@
 
   function openExportMenu() { $('#exportDialogTitle').textContent = t('exportMarkdown'); $('#exportDialogHint').textContent = t('exportHint'); $('#exportStartLabel').textContent = t('exportStart'); $('#exportEndLabel').textContent = t('exportEnd'); $('#exportStartDate').value = state.date; $('#exportEndDate').value = state.date; $('#exportError').hidden = true; $('#closeExportSecondary').textContent = t('cancel'); $('#exportRangeButton').textContent = t('exportRange'); exportDialog.showModal(); }
   async function exportTasks() { const startDate = $('#exportStartDate').value; const endDate = $('#exportEndDate').value; const error = $('#exportError'); if (!Task.isDateKey(startDate) || !Task.isDateKey(endDate) || endDate < startDate) { error.textContent = t('exportInvalid'); error.hidden = false; return; } try { const result = await window.dailyWidget.exportRange(startDate, endDate); exportDialog.close(); try { await navigator.clipboard.writeText(result.markdown); showToast(t('exported')); } catch (_) { showToast(`${t('exported')} · ${result.filePath}`); } } catch (_) { error.textContent = t('exportInvalid'); error.hidden = false; } }
-  async function syncNow() { const result = await window.dailyWidget.syncNow(); await reload(); showToast(result.ok ? t('syncedToast', { push: result.pushed || 0, pull: result.pulled || 0 }) : (result.message || t('chooseFolder'))); }
-  async function chooseSyncFolder() { const result = await window.dailyWidget.chooseSyncFolder(); if (result.canceled) return; await syncNow(); }
+  async function syncNow() {
+    if (state.syncing) return;
+    state.syncing = true;
+    const button = $('#syncButton');
+    button.disabled = true;
+    showToast(t('syncing'));
+    try {
+      let result = await window.dailyWidget.syncNow();
+      if (!result.ok && result.reason === 'not-configured') {
+        const configured = await chooseSyncFolder(false);
+        if (!configured) return;
+        result = await window.dailyWidget.syncNow();
+      }
+      await reload();
+      const failureMessage = result.code === 'SYNC_FILE_UNAVAILABLE' ? t('syncFileUnavailable') : (result.message || t('chooseFolder'));
+      showToast(result.ok ? t('syncedToast', { push: result.pushed || 0, pull: result.pulled || 0 }) : failureMessage);
+    } finally {
+      state.syncing = false;
+      button.disabled = false;
+    }
+  }
+  async function chooseSyncFolder(runSync = true) {
+    const result = await window.dailyWidget.chooseSyncFolder();
+    if (result.canceled) return false;
+    await reload();
+    if (runSync) await syncNow();
+    return true;
+  }
   async function cycleTheme() { const themes = ['system', 'light', 'dark']; const next = themes[(themes.indexOf(state.settings.theme || 'system') + 1) % themes.length]; state.settings = await window.dailyWidget.updateSettings({ theme: next }); applyTheme(); showToast(next === 'system' ? t('themeSystem') : (next === 'dark' ? t('themeDark') : t('themeLight'))); }
   async function toggleLanguage() { state.settings = await window.dailyWidget.updateSettings({ language: language() === 'zh' ? 'en' : 'zh' }); render(); }
   async function changeDate(days) { state.date = Task.addDays(state.date, days); await reload(); }
 
   function bindEvents() {
-    $('#previousDay').addEventListener('click', () => changeDate(-1)); $('#nextDay').addEventListener('click', () => changeDate(1)); $('#todayButton').addEventListener('click', async () => { state.date = Task.formatDateKey(new Date()); state.activeView = 'today'; await reload(); });
+    $('#datePickerButton').addEventListener('click', openCalendar); $('#closeCalendar').addEventListener('click', () => calendarDialog.close()); $('#previousMonth').addEventListener('click', () => shiftCalendarMonth(-1)); $('#nextMonth').addEventListener('click', () => shiftCalendarMonth(1)); $('#calendarToday').addEventListener('click', async () => { state.date = Task.formatDateKey(new Date()); calendarDialog.close(); navigate('today'); await reload(); }); $('#todayButton').addEventListener('click', async () => { state.date = Task.formatDateKey(new Date()); navigate('today'); await reload(); });
     $('#quickAdd').addEventListener('click', addQuickTask); $('#quickInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') addQuickTask(); }); $('#newInbox').addEventListener('click', () => openTaskDialog({ date: null, start: null, end: null, category: 'personal', recurrence: 'none' }));
     $('#taskForm').addEventListener('submit', saveTaskFromDialog); $('#cancelTask').addEventListener('click', closeTaskDialog); $('#deleteTask').addEventListener('click', deleteEditingTask); $('#reviewButton').addEventListener('click', () => setActiveView('review')); $('#closeReview').addEventListener('click', () => reviewDialog.close());
     $('#exportButton').addEventListener('click', openExportMenu); $('#closeExport').addEventListener('click', () => exportDialog.close()); $('#closeExportSecondary').addEventListener('click', () => exportDialog.close()); $('#exportRangeButton').addEventListener('click', exportTasks); $('#syncButton').addEventListener('click', syncNow); $('#syncFolderBtn').addEventListener('click', chooseSyncFolder); $('#themeButton').addEventListener('click', cycleTheme); $('#languageButton').addEventListener('click', toggleLanguage); $('#clearFocus').addEventListener('click', () => showToast(t('focusManage')));
-    document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', async () => { if (button.dataset.view === 'today') { state.date = Task.formatDateKey(new Date()); state.activeView = 'today'; await reload(); } else setActiveView(button.dataset.view); }));
+    document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', async () => { if (button.dataset.view === 'today') { state.date = Task.formatDateKey(new Date()); await reload(); } navigate(button.dataset.view); }));
+    window.addEventListener('hashchange', () => setActiveView(routeFromHash()));
+    document.addEventListener('keydown', (event) => { if (!event.metaKey || state.activeView !== 'today' || event.target.matches('input,textarea,select')) return; if (event.key === 'ArrowLeft') { event.preventDefault(); changeDate(-1); } if (event.key === 'ArrowRight') { event.preventDefault(); changeDate(1); } });
     window.dailyWidget.onSyncChanged(async () => { await reload(); showToast(t('remoteChange')); });
     setInterval(() => { if (isToday()) { renderSummary(); renderTimeline(); } }, 60000);
   }
 
-  async function boot() { await window.dailyWidget.init(); bindEvents(); await reload(); }
+  async function boot() { state.activeView = routeFromHash(); await window.dailyWidget.init(); bindEvents(); await reload(); }
   boot().catch((error) => { console.error(error); showToast(`启动失败：${error.message}`); });
 })();

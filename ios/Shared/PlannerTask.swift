@@ -1,7 +1,7 @@
 import Foundation
 
 struct PlannerTask: Codable, Identifiable, Hashable {
-    static let schemaVersion = 1
+    static let schemaVersion = 2
 
     var schemaVersion: Int = PlannerTask.schemaVersion
     var id: String
@@ -13,6 +13,8 @@ struct PlannerTask: Codable, Identifiable, Hashable {
     var focus: Bool = false
     var focusDates: [String] = []
     var category: String = "personal"
+    var colorMode: String = "category"
+    var colorToken: String?
     var notes: String = ""
     var url: String = ""
     var recurrence: String = "none"
@@ -109,7 +111,7 @@ extension DateFormatter {
 
 extension PlannerTask {
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, id, date, start, end, title, done, focus, focusDates, category, notes, url, recurrence, completedDates, createdAt, updatedAt, updatedBy, deletedAt
+        case schemaVersion, id, date, start, end, title, done, focus, focusDates, category, colorMode, colorToken, notes, url, recurrence, completedDates, createdAt, updatedAt, updatedBy, deletedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -125,6 +127,8 @@ extension PlannerTask {
         self.focus = try values.decodeIfPresent(Bool.self, forKey: .focus) ?? false
         self.focusDates = try values.decodeIfPresent([String].self, forKey: .focusDates) ?? []
         self.category = try values.decodeIfPresent(String.self, forKey: .category) ?? "personal"
+        self.colorMode = try values.decodeIfPresent(String.self, forKey: .colorMode) == "custom" ? "custom" : "category"
+        self.colorToken = try values.decodeIfPresent(String.self, forKey: .colorToken)
         self.notes = try values.decodeIfPresent(String.self, forKey: .notes) ?? ""
         self.url = try values.decodeIfPresent(String.self, forKey: .url) ?? ""
         self.recurrence = try values.decodeIfPresent(String.self, forKey: .recurrence) ?? "none"

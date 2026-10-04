@@ -98,20 +98,23 @@ final class PlannerStore: ObservableObject {
     @discardableResult
     func syncNow() -> Bool {
         guard let folder = syncFolderURL else { syncState = .localOnly; return false }
+        guard syncState != .syncing else { return true }
         syncState = .syncing
-        let access = folder.startAccessingSecurityScopedResource()
-        defer { if access { folder.stopAccessingSecurityScopedResource() } }
-        do {
-            var coordinationError: NSError?
-            var syncError: Error?
-            NSFileCoordinator().coordinate(writingItemAt: folder, options: [], error: &coordinationError) { coordinatedFolder in
-                do { try performSync(in: coordinatedFolder) } catch { syncError = error }
+        let localRecords = records
+        Task { [weak self] in
+            do {
+                let merged = try await Task.detached(priority: .userInitiated) {
+                    try Self.synchronize(localRecords: localRecords, folder: folder)
+                }.value
+                guard let self else { return }
+                records = merged
+                persist()
+                syncState = .synced(.now)
+            } catch {
+                self?.syncState = .failure(error.localizedDescription)
             }
-            if let coordinationError { throw coordinationError }
-            if let syncError { throw syncError }
-            syncState = .synced(.now)
-            return true
-        } catch { syncState = .failure(error.localizedDescription); return false }
+        }
+        return true
     }
 
     func handleDeepLink(_ url: URL) {
@@ -136,8 +139,6 @@ final class PlannerStore: ObservableObject {
         if !fileManager.fileExists(atPath: url.path) { try fileManager.moveItem(at: temp, to: url) }
     }
 
-    private func readTask(_ url: URL) -> PlannerTask? { guard url.pathExtension == "json", let data = try? Data(contentsOf: url) else { return nil }; return try? decoder.decode(PlannerTask.self, from: data) }
-    private func taskIsNewer(_ left: PlannerTask, than right: PlannerTask) -> Bool { (ISO8601DateFormatter().date(from: left.updatedAt) ?? .distantPast) > (ISO8601DateFormatter().date(from: right.updatedAt) ?? .distantPast) }
     private func restoreSyncFolder() {
         guard let bookmark = UserDefaults.standard.data(forKey: "syncFolderBookmark") else { return }
         var stale = false
@@ -149,21 +150,51 @@ final class PlannerStore: ObservableObject {
         let tasks = tasks(for: Date().dayKey)
         let nowMinute = Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now)
         func item(_ task: ScheduledOccurrence) -> WidgetSnapshot.Item { .init(id: task.task.id, title: task.title, start: task.start, end: task.end, done: task.isDone, category: task.category, recurrence: task.task.recurrence, date: task.sourceDate) }
-        let snapshot = WidgetSnapshot(date: Date().dayKey, completed: tasks.filter(\.isDone).count, total: tasks.count, current: tasks.first { $0.start <= nowMinute && $0.end > nowMinute && !$0.isDone }.map(item), upcoming: tasks.filter { $0.start >= nowMinute && !$0.isDone }.prefix(3).map(item), updatedAt: .now, language: language)
+        let current = tasks.first { $0.start <= nowMinute && $0.end > nowMinute && !$0.isDone }
+        let remaining = tasks.filter { !$0.isDone && $0.id != current?.id }.sorted { ($0.isFocus ? 0 : 1, $0.start) < ($1.isFocus ? 0 : 1, $1.start) }
+        let snapshot = WidgetSnapshot(date: Date().dayKey, completed: tasks.filter(\.isDone).count, total: tasks.count, current: current.map(item), upcoming: remaining.prefix(3).map(item), updatedAt: .now, language: language)
         if let data = try? encoder.encode(snapshot) { try? data.write(to: container.appendingPathComponent("widget-today.json"), options: .atomic); WidgetCenter.shared.reloadAllTimelines() }
     }
 
-    private func performSync(in folder: URL) throws {
-        let tasksURL = folder.appendingPathComponent("tasks", isDirectory: true)
-        try fileManager.createDirectory(at: tasksURL, withIntermediateDirectories: true)
-        let remote = try fileManager.contentsOfDirectory(at: tasksURL, includingPropertiesForKeys: nil).compactMap(readTask)
-        var merged = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
-        for incoming in remote {
-            if let local = merged[incoming.id], taskIsNewer(incoming, than: local) { merged[incoming.id] = incoming }
-            else if merged[incoming.id] == nil { merged[incoming.id] = incoming }
+    private nonisolated static func synchronize(localRecords: [PlannerTask], folder: URL) throws -> [PlannerTask] {
+        let access = folder.startAccessingSecurityScopedResource()
+        defer { if access { folder.stopAccessingSecurityScopedResource() } }
+
+        var coordinationError: NSError?
+        var syncResult: Result<[PlannerTask], Error>?
+        NSFileCoordinator().coordinate(writingItemAt: folder, options: [], error: &coordinationError) { coordinatedFolder in
+            syncResult = Result { try synchronizeFiles(localRecords: localRecords, folder: coordinatedFolder) }
         }
-        records = Array(merged.values)
-        persist()
-        try records.forEach { task in try write(task, to: tasksURL.appendingPathComponent("\(task.id).json")) }
+        if let coordinationError { throw coordinationError }
+        return try syncResult?.get() ?? localRecords
+    }
+
+    private nonisolated static func synchronizeFiles(localRecords: [PlannerTask], folder: URL) throws -> [PlannerTask] {
+        let manager = FileManager.default
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let tasksURL = folder.appendingPathComponent("tasks", isDirectory: true)
+        try manager.createDirectory(at: tasksURL, withIntermediateDirectories: true)
+        let remote = try manager.contentsOfDirectory(at: tasksURL, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+            .compactMap { url -> PlannerTask? in
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return try? decoder.decode(PlannerTask.self, from: data)
+            }
+        var merged = Dictionary(uniqueKeysWithValues: localRecords.map { ($0.id, $0) })
+        let formatter = ISO8601DateFormatter()
+        for incoming in remote {
+            let incomingDate = formatter.date(from: incoming.updatedAt) ?? .distantPast
+            let localDate = merged[incoming.id].flatMap { formatter.date(from: $0.updatedAt) } ?? .distantPast
+            if merged[incoming.id] == nil || incomingDate > localDate { merged[incoming.id] = incoming }
+        }
+        let records = Array(merged.values)
+        for task in records {
+            let destination = tasksURL.appendingPathComponent("\(task.id).json")
+            let data = try encoder.encode(task)
+            try data.write(to: destination, options: .atomic)
+        }
+        return records
     }
 }

@@ -1,12 +1,17 @@
 'use strict';
 
 const crypto = require('crypto');
+const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const Task = require('./task-model');
 
 function ensureDirectory(directory) {
   fs.mkdirSync(directory, { recursive: true });
+}
+
+async function ensureDirectoryAsync(directory) {
+  await fs.promises.mkdir(directory, { recursive: true });
 }
 
 function safeReadJson(filePath, fallback) {
@@ -24,11 +29,81 @@ function writeJsonAtomic(filePath, value) {
   fs.renameSync(temporaryPath, filePath);
 }
 
+async function writeJsonAtomicAsync(filePath, value) {
+  await ensureDirectoryAsync(path.dirname(filePath));
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`;
+  await fs.promises.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  await fs.promises.rename(temporaryPath, filePath);
+}
+
 function listJsonFiles(directory) {
   if (!fs.existsSync(directory)) return [];
   return fs.readdirSync(directory, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
     .map((entry) => path.join(directory, entry.name));
+}
+
+async function listJsonFilesAsync(directory) {
+  try {
+    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+      .map((entry) => path.join(directory, entry.name));
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+function safeReadJsonIsolated(filePath, fallback, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = childProcess.spawn(process.execPath, [path.join(__dirname, 'read-json-child.js'), filePath], {
+      env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }),
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    let output = '';
+    let settled = false;
+    let timer;
+    const finish = (callback) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback();
+    };
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => { output += chunk; });
+    child.once('error', (error) => finish(() => reject(error)));
+    child.once('close', () => finish(() => {
+      try {
+        const result = JSON.parse(output);
+        if (result.ok) resolve(result.value);
+        else if (['ENOENT', 'EISDIR'].includes(result.code)) resolve(fallback);
+        else if (result.name === 'SyntaxError') resolve(fallback);
+        else reject(Object.assign(new Error(result.message || 'Unable to read shared task file'), { code: result.code }));
+      } catch (error) {
+        reject(error);
+      }
+    }));
+    timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(() => {
+        const error = new Error(`A shared task file is not available offline yet: ${path.basename(filePath)}`);
+        error.code = 'SYNC_FILE_UNAVAILABLE';
+        reject(error);
+      });
+    }, timeoutMs);
+  });
+}
+
+async function safeReadJsonAsync(filePath, fallback, timeoutMs) {
+  if (timeoutMs) return safeReadJsonIsolated(filePath, fallback, timeoutMs);
+  try {
+    return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+  } catch (error) {
+    if (error && ['ENOENT', 'EISDIR'].includes(error.code)) return fallback;
+    if (error instanceof SyntaxError) return fallback;
+    throw error;
+  }
 }
 
 function normalizeFolder(folderPath) {
@@ -79,8 +154,10 @@ class TaskStore {
       theme: 'system',
       language: 'zh',
       syncFolder: null,
+      syncBookmark: null,
       lastSyncAt: null,
       lastSyncError: null,
+      lastSyncErrorCode: null,
     };
     writeJsonAtomic(this.settingsPath, settings);
     return settings;
@@ -95,7 +172,7 @@ class TaskStore {
     const next = Object.assign({}, current, patch || {});
     if (next.syncFolder) next.syncFolder = normalizeFolder(next.syncFolder);
     writeJsonAtomic(this.settingsPath, next);
-    this.watchConfiguredFolder();
+    if (Object.prototype.hasOwnProperty.call(patch || {}, 'syncFolder')) this.watchConfiguredFolder();
     return next;
   }
 
@@ -107,6 +184,14 @@ class TaskStore {
   allRecords(directory) {
     return listJsonFiles(directory || this.tasksDirectory)
       .map((filePath) => safeReadJson(filePath, null))
+      .filter((value) => value && typeof value === 'object' && typeof value.id === 'string')
+      .map((value) => Task.normalizeTask(value, { deviceId: value.updatedBy || this.deviceId }));
+  }
+
+  async allRecordsAsync(directory, options) {
+    const files = await listJsonFilesAsync(directory || this.tasksDirectory);
+    const values = await Promise.all(files.map((filePath) => safeReadJsonAsync(filePath, null, options && options.readTimeoutMs)));
+    return values
       .filter((value) => value && typeof value === 'object' && typeof value.id === 'string')
       .map((value) => Task.normalizeTask(value, { deviceId: value.updatedBy || this.deviceId }));
   }
@@ -256,35 +341,40 @@ class TaskStore {
     return repaired;
   }
 
-  setSyncFolder(folderPath) {
+  async setSyncFolder(folderPath, bookmark) {
     const resolved = normalizeFolder(folderPath);
-    if (!resolved) return this.updateSettings({ syncFolder: null });
+    if (!resolved) return this.updateSettings({ syncFolder: null, syncBookmark: null });
     if (resolved === this.rootDirectory || resolved.startsWith(`${this.rootDirectory}${path.sep}`)) {
       throw new Error('Sync folder must be outside the app data folder');
     }
-    ensureDirectory(resolved);
-    ensureDirectory(path.join(resolved, 'tasks'));
-    ensureDirectory(path.join(resolved, 'backups'));
-    return this.updateSettings({ syncFolder: resolved, lastSyncError: null });
+    await Promise.all([
+      ensureDirectoryAsync(path.join(resolved, 'tasks')),
+      ensureDirectoryAsync(path.join(resolved, 'backups')),
+    ]);
+    return this.updateSettings({ syncFolder: resolved, syncBookmark: bookmark || null, lastSyncError: null });
   }
 
-  writeConflictBackup(record, source) {
+  async writeConflictBackup(record, source) {
     if (!record) return;
     const directory = path.join(this.backupDirectory, 'conflicts');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    writeJsonAtomic(path.join(directory, `${record.id}-${source}-${stamp}.json`), record);
+    await writeJsonAtomicAsync(path.join(directory, `${record.id}-${source}-${stamp}.json`), record);
   }
 
-  syncNow(reason) {
+  async syncNow(reason) {
     const settings = this.getSettings();
     if (!settings.syncFolder) return { ok: false, reason: 'not-configured', message: 'Choose a shared folder first.' };
     if (this.isSyncing) return { ok: false, reason: 'busy', message: 'Sync already running.' };
     this.isSyncing = true;
     try {
       const remoteDirectory = path.join(settings.syncFolder, 'tasks');
-      ensureDirectory(remoteDirectory);
-      const localRecords = new Map(this.allRecords().map((record) => [record.id, record]));
-      const remoteRecords = new Map(this.allRecords(remoteDirectory).map((record) => [record.id, record]));
+      await ensureDirectoryAsync(remoteDirectory);
+      const [localList, remoteList] = await Promise.all([
+        this.allRecordsAsync(),
+        this.allRecordsAsync(remoteDirectory, { readTimeoutMs: 6000 }),
+      ]);
+      const localRecords = new Map(localList.map((record) => [record.id, record]));
+      const remoteRecords = new Map(remoteList.map((record) => [record.id, record]));
       const ids = new Set([...localRecords.keys(), ...remoteRecords.keys()]);
       let pulled = 0;
       let pushed = 0;
@@ -295,27 +385,27 @@ class TaskStore {
         const merge = Task.mergeTaskRecords(local, remote);
         if (merge.conflict) {
           conflicts += 1;
-          this.writeConflictBackup(merge.loser, local === merge.loser ? 'local' : 'remote');
+          await this.writeConflictBackup(merge.loser, local === merge.loser ? 'local' : 'remote');
         }
         if (!merge.winner) continue;
         const localPath = this.taskPath(id, this.tasksDirectory);
         const remotePath = this.taskPath(id, remoteDirectory);
         if (!local || JSON.stringify(local) !== JSON.stringify(merge.winner)) {
-          writeJsonAtomic(localPath, merge.winner);
+          await writeJsonAtomicAsync(localPath, merge.winner);
           pulled += 1;
         }
         if (!remote || JSON.stringify(remote) !== JSON.stringify(merge.winner)) {
-          writeJsonAtomic(remotePath, merge.winner);
+          await writeJsonAtomicAsync(remotePath, merge.winner);
           pushed += 1;
         }
       }
       this.ignoreWatchUntil = Date.now() + 2000;
       const completedAt = new Date().toISOString();
-      this.updateSettings({ lastSyncAt: completedAt, lastSyncError: null });
+      this.updateSettings({ lastSyncAt: completedAt, lastSyncError: null, lastSyncErrorCode: null });
       return { ok: true, reason: reason || 'manual', pulled, pushed, conflicts, completedAt };
     } catch (error) {
-      this.updateSettings({ lastSyncError: error.message });
-      return { ok: false, reason: 'error', message: error.message };
+      this.updateSettings({ lastSyncError: error.message, lastSyncErrorCode: error.code || null });
+      return { ok: false, reason: 'error', code: error.code || null, message: error.message };
     } finally {
       this.isSyncing = false;
     }
@@ -327,14 +417,16 @@ class TaskStore {
       this.watcher = null;
     }
     const syncFolder = this.getSettings().syncFolder;
-    if (!syncFolder || !fs.existsSync(syncFolder)) return;
+    if (!syncFolder) return;
+    const tasksFolder = path.join(syncFolder, 'tasks');
     try {
-      this.watcher = fs.watch(syncFolder, { recursive: true }, () => {
+      this.watcher = fs.watch(tasksFolder, () => {
         if (Date.now() < this.ignoreWatchUntil || this.isSyncing) return;
         clearTimeout(this.watchTimer);
         this.watchTimer = setTimeout(() => {
-          const status = this.syncNow('folder-change');
-          this.onRemoteChange(status);
+          this.syncNow('folder-change')
+            .then((status) => this.onRemoteChange(status))
+            .catch(() => {});
         }, 700);
       });
       this.watcher.on('error', () => {

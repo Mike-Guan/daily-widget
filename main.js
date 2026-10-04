@@ -3,6 +3,13 @@ const path = require('path');
 const { TaskStore } = require('./src/task-store');
 
 let store;
+let stopAccessingSyncFolder;
+
+function activateSyncBookmark(settings) {
+  if (!process.mas || !settings || !settings.syncBookmark) return;
+  if (stopAccessingSyncFolder) stopAccessingSyncFolder();
+  stopAccessingSyncFolder = app.startAccessingSecurityScopedResource(settings.syncBookmark);
+}
 
 function storageDirectories() {
   if (!app.isPackaged) {
@@ -51,9 +58,12 @@ function registerIpc() {
       title: 'Choose your shared Daily Widget folder',
       buttonLabel: 'Use this folder',
       properties: ['openDirectory', 'createDirectory'],
+      securityScopedBookmarks: true,
     });
     if (result.canceled || !result.filePaths[0]) return { canceled: true };
-    return { canceled: false, settings: store.setSyncFolder(result.filePaths[0]) };
+    const settings = await store.setSyncFolder(result.filePaths[0], result.bookmarks && result.bookmarks[0]);
+    activateSyncBookmark(settings);
+    return { canceled: false, settings };
   });
   ipcMain.handle('links:open', async (_, rawUrl) => {
     let url;
@@ -74,9 +84,10 @@ app.whenReady().then(() => {
   registerIpc();
   store.init();
   const settings = store.getSettings();
-  if (settings.syncFolder) store.syncNow('startup');
+  activateSyncBookmark(settings);
   createWindow();
+  if (settings.syncFolder) void store.syncNow('startup');
 });
 
 app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => { if (store) store.dispose(); });
+app.on('before-quit', () => { if (stopAccessingSyncFolder) stopAccessingSyncFolder(); if (store) store.dispose(); });

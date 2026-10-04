@@ -5,15 +5,25 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function taskModelFactory() {
   'use strict';
 
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
   const MINUTES_PER_DAY = 24 * 60;
+  const TASK_COLOR_TOKENS = [
+    { id: 'indigo', fill: '#dce8ff', border: '#7e9eea' },
+    { id: 'mint', fill: '#d8f3e2', border: '#71b98d' },
+    { id: 'amber', fill: '#fff0ca', border: '#dfb34e' },
+    { id: 'rose', fill: '#fde0ec', border: '#dd8fae' },
+    { id: 'violet', fill: '#e9defd', border: '#ad91dc' },
+    { id: 'coral', fill: '#ffe2cf', border: '#de986d' },
+    { id: 'sky', fill: '#d8efff', border: '#6caee4' },
+  ];
+  const COLOR_TOKEN_IDS = new Set(TASK_COLOR_TOKENS.map((token) => token.id));
   const CATEGORY_DEFINITIONS = [
-    { id: 'personal', label: '个人', fill: '#dce8ff', border: '#92b1ef' },
-    { id: 'health', label: '健康', fill: '#d8f3e2', border: '#8ac7a1' },
-    { id: 'home', label: '生活', fill: '#fff0ca', border: '#e6c66e' },
-    { id: 'social', label: '关系', fill: '#fde0ec', border: '#e7a0bf' },
-    { id: 'learning', label: '学习', fill: '#e9defd', border: '#bda5e4' },
-    { id: 'errands', label: '杂事', fill: '#ffe2cf', border: '#e8ae81' },
+    { id: 'personal', label: '个人', colorToken: 'indigo' },
+    { id: 'health', label: '健康', colorToken: 'mint' },
+    { id: 'home', label: '生活', colorToken: 'amber' },
+    { id: 'social', label: '关系', colorToken: 'rose' },
+    { id: 'learning', label: '学习', colorToken: 'violet' },
+    { id: 'errands', label: '杂事', colorToken: 'coral' },
   ];
   const CATEGORY_IDS = new Set(CATEGORY_DEFINITIONS.map((category) => category.id));
   const RECURRENCES = new Set(['none', 'daily', 'weekdays', 'weekly']);
@@ -91,6 +101,27 @@
     return normalizeCompletedDates(value);
   }
 
+  function categoryColorToken(category) {
+    return (CATEGORY_DEFINITIONS.find((item) => item.id === category) || CATEGORY_DEFINITIONS[0]).colorToken;
+  }
+
+  function normalizeColorMode(value) {
+    return value === 'custom' ? 'custom' : 'category';
+  }
+
+  function normalizeColorToken(value, category, mode) {
+    if (mode === 'custom' && COLOR_TOKEN_IDS.has(value)) return value;
+    return null;
+  }
+
+  function resolveTaskColor(task) {
+    const category = CATEGORY_IDS.has(task && task.category) ? task.category : 'personal';
+    const token = task && task.colorMode === 'custom' && COLOR_TOKEN_IDS.has(task.colorToken)
+      ? task.colorToken
+      : categoryColorToken(category);
+    return TASK_COLOR_TOKENS.find((item) => item.id === token) || TASK_COLOR_TOKENS[0];
+  }
+
   function normalizeTask(input, options) {
     const source = input || {};
     const config = options || {};
@@ -111,6 +142,8 @@
     }
     if (end !== null && start !== null) end = Math.min(start + MINUTES_PER_DAY, end);
     const title = String(source.title !== undefined ? source.title : (source.text || '')).trim();
+    const category = CATEGORY_IDS.has(source.category) ? source.category : 'personal';
+    const colorMode = normalizeColorMode(source.colorMode);
     return {
       schemaVersion: SCHEMA_VERSION,
       id: typeof source.id === 'string' && source.id ? source.id : createId(),
@@ -121,7 +154,9 @@
       done: Boolean(source.done),
       focus: Boolean(source.focus),
       focusDates: normalizeFocusDates(source.focusDates),
-      category: CATEGORY_IDS.has(source.category) ? source.category : 'personal',
+      category,
+      colorMode,
+      colorToken: normalizeColorToken(source.colorToken, category, colorMode),
       notes: typeof source.notes === 'string' ? source.notes : '',
       url: normalizeUrl(source.url),
       recurrence: normalizeRecurrence(source.recurrence),
@@ -341,6 +376,7 @@
     SCHEMA_VERSION,
     MINUTES_PER_DAY,
     CATEGORY_DEFINITIONS,
+    TASK_COLOR_TOKENS,
     addDays,
     clampMinute,
     createId,
@@ -356,6 +392,7 @@
     occurrencesFor,
     occursOn,
     parseQuickInput,
+    resolveTaskColor,
     sortTasks,
     toMarkdown,
     updateTask,
