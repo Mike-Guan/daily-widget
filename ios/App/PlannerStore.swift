@@ -60,6 +60,9 @@ final class PlannerStore: ObservableObject {
 
     func hasReminder(_ task: PlannerTask) -> Bool { reminderIDs.contains(task.id) }
 
+    /// False for a task that is still only a draft in an editor.
+    func contains(_ task: PlannerTask) -> Bool { records.contains { $0.id == task.id && !$0.isDeleted } }
+
     func setReminder(_ wanted: Bool, for task: PlannerTask) {
         ReminderPlan.setWanted(wanted, taskID: task.id)
         syncReminders()
