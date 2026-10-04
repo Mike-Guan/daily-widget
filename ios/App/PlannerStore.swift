@@ -176,6 +176,7 @@ final class PlannerStore: ObservableObject {
 
     func handleDeepLink(_ url: URL) {
         guard url.scheme == "dailywidget" else { return }
+        if url.host == "quickadd" { NotificationCenter.default.post(name: .dailyWidgetQuickAdd, object: nil); return }
         if let date = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "date" })?.value { selectedDate = .date(fromKey: date) }
     }
 

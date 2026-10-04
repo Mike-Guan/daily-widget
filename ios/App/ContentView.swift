@@ -15,6 +15,15 @@ struct ContentView: View {
     @State private var tab: AppTab = .today
     @State private var showSyncFolderPrompt = false
     @State private var showingCalendar = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// From the lock-screen widget or control: drop whatever sheet is up and start listening.
+    private func openQuickAdd() {
+        _ = OpenQuickAddIntent.consumePendingRequest()
+        showingEditor = false; showingQuickCreate = false; showingSettings = false; showingCalendar = false
+        tab = .today
+        if !showingQuickAdd { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showingQuickAdd = true } }
+    }
 
     var body: some View {
         ZStack {
@@ -29,6 +38,9 @@ struct ContentView: View {
         .sheet(isPresented: $showingEditor) { if let task = selectedTask { TaskEditor(task: task) } }
         .sheet(isPresented: $showingQuickCreate) { if let task = selectedTask { QuickCreateSheet(task: task, selectedTask: $selectedTask, showingEditor: $showingEditor) } }
         .sheet(isPresented: $showingSettings) { SettingsView() }
+        .onReceive(NotificationCenter.default.publisher(for: .dailyWidgetQuickAdd)) { _ in openQuickAdd() }
+        .onChange(of: scenePhase) { _, phase in if phase == .active, OpenQuickAddIntent.consumePendingRequest() { openQuickAdd() } }
+        .onAppear { if OpenQuickAddIntent.consumePendingRequest() { openQuickAdd() } }
         .sheet(isPresented: $showingQuickAdd) { QuickAddSheet(selectedTask: $selectedTask, showingEditor: $showingEditor) }
         .fileImporter(isPresented: $pickingSyncFolder, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { store.setSyncFolder(url) }

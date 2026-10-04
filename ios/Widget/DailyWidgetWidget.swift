@@ -204,5 +204,41 @@ struct DailyWidgetWidgetView: View {
     private func text(_ english: String, _ chinese: String) -> String { entry.snapshot.language == "en" ? english : chinese }
 }
 
+/// A lock-screen circle that opens voice capture.
+struct QuickAddAccessoryWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "DailyWidgetQuickAdd", provider: DailyWidgetProvider()) { entry in
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "mic.fill").font(.title2.weight(.semibold)).widgetAccentable()
+            }
+            .containerBackground(.clear, for: .widget)
+            .widgetURL(URL(string: "dailywidget://quickadd"))
+            .accessibilityLabel(entry.snapshot.language == "en" ? "Add a task by voice" : "语音记一件事")
+        }
+        .configurationDisplayName("语音添加 · Voice add")
+        .description("点一下，直接说要记的事。Tap and say what to add.")
+        .supportedFamilies([.accessoryCircular])
+    }
+}
+
+/// The same entry point as a control for the lock screen's bottom slots, Control Center and the Action Button.
+@available(iOS 18.0, *)
+struct QuickAddControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.guanshiyang.dailywidget.quickadd") {
+            ControlWidgetButton(action: OpenQuickAddIntent()) { Label("记一件事", systemImage: "mic.fill") }
+        }
+        .displayName("记一件事")
+        .description("打开 Daily Widget 并开始听。Opens Daily Widget and starts listening.")
+    }
+}
+
 @main
-struct DailyWidgetBundle: WidgetBundle { var body: some Widget { DailyWidgetWidget() } }
+struct DailyWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        DailyWidgetWidget()
+        QuickAddAccessoryWidget()
+        if #available(iOS 18.0, *) { QuickAddControl() }
+    }
+}
