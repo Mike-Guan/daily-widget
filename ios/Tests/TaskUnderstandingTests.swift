@@ -175,6 +175,37 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(draft("周五晚上和老王吃饭", ModelTaskOutput(title: "和老王吃饭", category: "home"), guessCategory: true).category, "home")
     }
 
+    // MARK: Answers the bundled model really gave (recorded on a Mac)
+
+    func testLocalModelAnswersAreReadAndChecked() throws {
+        // Echoes the whole sentence as the title: the rules' cleaner title must win, the category is kept.
+        var output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"帮我预约10月23号提醒我我在华山医院公众号挂号","date":"10月23号","time":"","duration_minutes":0,"remind":true,"category":"health","repeat":"none"}"#))
+        var result = draft("帮我预约10月23号提醒我我在华山医院公众号挂号", output)
+        XCTAssertEqual(result, TaskDraft(title: "在华山医院公众号挂号", date: "2026-10-23", start: 540, end: 570, category: "health", source: .model, wantsReminder: true, usesDefaultTime: true))
+
+        // "7:30" was never said ("七点半" was), so the model's time is ignored and the rules' time stands.
+        output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"老王他们几个吃火锅","date":"周五晚上","time":"7:30","duration_minutes":0,"remind":false,"category":"social","repeat":"none"}"#))
+        result = draft("那个啥周五晚上七点半约了老王他们几个吃火锅别让我忘了", output)
+        XCTAssertEqual(result.title, "老王他们几个吃火锅")
+        XCTAssertEqual(result.date, "2026-10-09")
+        XCTAssertEqual(result.start, 19 * 60 + 30)
+        XCTAssertEqual(result.category, "social")
+
+        // A tidier title that is not a contiguous part of the sentence is rejected.
+        output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"去看牙","date":"下周二","time":"下午两点左右","duration_minutes":0,"remind":false,"category":"health","repeat":"none"}"#))
+        result = draft("嗯我想想下周二下午吧两点左右去看一下牙", output)
+        XCTAssertEqual(result.date, "2026-10-13")
+        XCTAssertEqual(result.category, "health")
+        XCTAssertFalse(result.title.isEmpty)
+    }
+
+    func testLocalModelGarbageIsIgnored() {
+        XCTAssertNil(LocalModelPrompt.parse("好的，我来帮你。"))
+        XCTAssertNil(LocalModelPrompt.parse("{not json}"))
+        let partial = LocalModelPrompt.parse(#"说明：{"title":"买牛奶","duration_minutes":"很久","remind":"yes"} 完成"#)
+        XCTAssertEqual(partial, ModelTaskOutput(title: "买牛奶"))
+    }
+
     // MARK: Date phrases resolved in code
 
     private func day(_ phrase: String) -> String? { DatePhrase.resolve(phrase, now: now)?.dayKey }

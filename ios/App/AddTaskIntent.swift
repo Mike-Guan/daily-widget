@@ -16,7 +16,7 @@ struct AddTaskIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog & ShowsSnippetView {
         guard let repository = TaskRepository.shared else { throw AddTaskError.storageUnavailable }
         let english = (WidgetSnapshot.stored(in: repository.directory)?.language ?? "zh") == "en"
-        let draft = await TaskInterpreter.interpret(text, english: english)
+        let draft = await TaskInterpreter.interpret(text, english: english, allowBundledModel: false)
         guard !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw $text.needsValueError(IntentDialog(stringLiteral: english ? "What do you want to add?" : "要记什么？"))
         }

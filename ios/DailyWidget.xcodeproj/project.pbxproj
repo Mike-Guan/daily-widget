@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -41,6 +41,9 @@
 		A10000000000000000000032 /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* ReminderScheduler.swift */; };
 		A10000000000000000000033 /* OpenQuickAddIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* OpenQuickAddIntent.swift */; };
 		A10000000000000000000034 /* OpenQuickAddIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* OpenQuickAddIntent.swift */; };
+		A10000000000000000000035 /* LocalModelInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* LocalModelInterpreter.swift */; };
+		A10000000000000000000036 /* LocalModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = AF0000000000000000000002 /* LocalModelKit */; };
+		A10000000000000000000037 /* TaskModel in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* TaskModel */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,6 +103,8 @@
 		A20000000000000000000032 /* TaskUnderstandingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskUnderstandingTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000033 /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderScheduler.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* OpenQuickAddIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenQuickAddIntent.swift; sourceTree = "<group>"; };
+		A20000000000000000000035 /* LocalModelInterpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelInterpreter.swift; sourceTree = "<group>"; };
+		A20000000000000000000036 /* TaskModel */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TaskModel; path = Models/TaskModel; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXVariantGroup section */
@@ -128,6 +133,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000036 /* LocalModelKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -155,6 +161,7 @@
 				A80000000000000000000003 /* Shared */,
 				A80000000000000000000004 /* Widget */,
 				A80000000000000000000006 /* Tests */,
+				A20000000000000000000036 /* TaskModel */,
 				A80000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -170,6 +177,7 @@
 				A20000000000000000000030 /* TaskInterpreter.swift */,
 				A20000000000000000000031 /* SpeechDictation.swift */,
 				A20000000000000000000033 /* ReminderScheduler.swift */,
+				A20000000000000000000035 /* LocalModelInterpreter.swift */,
 				A20000000000000000000023 /* AppShortcuts.strings */,
 				A20000000000000000000024 /* Localizable.strings */,
 				A20000000000000000000010 /* Info.plist */,
@@ -242,6 +250,9 @@
 				AB0000000000000000000001 /* PBXTargetDependency */,
 			);
 			name = DailyWidget;
+			packageProductDependencies = (
+				AF0000000000000000000002 /* LocalModelKit */,
+			);
 			productName = DailyWidget;
 			productReference = A20000000000000000000009 /* DailyWidget.app */;
 			productType = "com.apple.product-type.application";
@@ -303,6 +314,9 @@
 				"zh-Hans",
 			);
 			mainGroup = A80000000000000000000001;
+			packageReferences = (
+				AF0000000000000000000001 /* XCLocalSwiftPackageReference "LocalModelKit" */,
+			);
 			productRefGroup = A80000000000000000000005 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -322,6 +336,7 @@
 				A10000000000000000000011 /* Assets.xcassets in Resources */,
 				A10000000000000000000025 /* AppShortcuts.strings in Resources */,
 				A10000000000000000000026 /* Localizable.strings in Resources */,
+				A10000000000000000000037 /* TaskModel in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,6 +382,7 @@
 				A10000000000000000000030 /* SpeechDictation.swift in Sources */,
 				A10000000000000000000032 /* ReminderScheduler.swift in Sources */,
 				A10000000000000000000033 /* OpenQuickAddIntent.swift in Sources */,
+				A10000000000000000000035 /* LocalModelInterpreter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -524,6 +540,20 @@
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AF0000000000000000000001 /* XCLocalSwiftPackageReference "LocalModelKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = LocalModelKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AF0000000000000000000002 /* LocalModelKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LocalModelKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCConfigurationList section */
 		A90000000000000000000001 /* Build configuration list for PBXNativeTarget "DailyWidget" */ = {

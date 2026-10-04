@@ -145,3 +145,43 @@ enum TaskUnderstanding {
         return normalized(text).contains(normalized(part))
     }
 }
+
+/// The instructions given to the bundled model and the reading of its one-line JSON answer.
+enum LocalModelPrompt {
+    static let instructions = """
+    你从用户说的一句话里标出日程的各个部分，只输出一行 JSON，不要解释，不要换行。
+    字段：
+    title：事情本身。照抄原话里的词，不要改写或翻译；去掉日期、时间、时长，以及“帮我添加”“帮我预约”“提醒我”“记一下”这类话头。
+    date：原话里表示哪一天的词，原样照抄，例如“10月23号”“下周三”“明天”“周五”。没说就是 ""。
+    time：原话里表示几点的词，原样照抄，例如“下午三点”“晚上8点半”“9:30”。没说就是 ""。
+    duration_minutes：持续多少分钟，整数。没说就是 0。
+    remind：用户是否要求提醒（“提醒我”“别忘了”“叫我”），true 或 false。
+    category：personal、health、home、social、learning、errands 之一。
+    repeat：none、daily、weekdays、weekly 之一。只有说了“每天”“工作日”“每周”才不是 none。
+
+    例子：
+    帮我预约10月23号提醒我华山医院公众号挂号
+    {"title":"华山医院公众号挂号","date":"10月23号","time":"","duration_minutes":0,"remind":true,"category":"health","repeat":"none"}
+    下周三上午十点和客户开会一个半小时
+    {"title":"和客户开会","date":"下周三","time":"上午十点","duration_minutes":90,"remind":false,"category":"personal","repeat":"none"}
+    每天早上七点跑步
+    {"title":"跑步","date":"","time":"早上七点","duration_minutes":0,"remind":false,"category":"health","repeat":"daily"}
+    remind me to call mom tomorrow at 3pm
+    {"title":"call mom","date":"tomorrow","time":"3pm","duration_minutes":0,"remind":true,"category":"social","repeat":"none"}
+    买牛奶
+    {"title":"买牛奶","date":"","time":"","duration_minutes":0,"remind":false,"category":"errands","repeat":"none"}
+    """
+
+    /// Reads the first JSON object in the answer. Anything unexpected becomes nil or an empty field;
+    /// `TaskUnderstanding` still checks every field against what was said.
+    static func parse(_ answer: String) -> ModelTaskOutput? {
+        guard let open = answer.firstIndex(of: "{"), let close = answer.lastIndex(of: "}"), open < close,
+              let object = try? JSONSerialization.jsonObject(with: Data(answer[open...close].utf8)) as? [String: Any] else { return nil }
+        func text(_ key: String) -> String? {
+            guard let value = (object[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+            return value
+        }
+        let duration = (object["duration_minutes"] as? NSNumber)?.intValue
+        return ModelTaskOutput(title: text("title") ?? "", dateText: text("date"), timeText: text("time"), durationMinutes: duration.flatMap { $0 > 0 ? $0 : nil }, wantsReminder: (object["remind"] as? Bool) ?? false, category: text("category"), recurrence: text("repeat"))
+    }
+}

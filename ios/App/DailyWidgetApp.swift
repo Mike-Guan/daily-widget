@@ -12,7 +12,7 @@ struct DailyWidgetApp: App {
                 .onOpenURL { url in store.handleDeepLink(url) }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active { store.appBecameActive() }
-                    else if phase == .background { store.appEnteredBackground() }
+                    else if phase == .background { store.appEnteredBackground(); LocalModelInterpreter.unload() }
                 }
         }
     }

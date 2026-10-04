@@ -10,13 +10,21 @@ enum TaskInterpreter {
     /// How long the model may think before the rules answer instead.
     static let timeout: Duration = .seconds(4)
 
-    static func interpret(_ text: String, english: Bool, now: Date = .now) async -> TaskDraft {
-        let model = await modelOutput(for: text, english: english, now: now)
+    /// The bundled model is slower to load than Apple's, so it gets longer.
+    static let bundledModelTimeout: Duration = .seconds(8)
+
+    /// - Parameter allowBundledModel: false for Siri and the Action Button, which run in the
+    ///   background with too little memory to load the bundled model.
+    static func interpret(_ text: String, english: Bool, now: Date = .now, allowBundledModel: Bool = true) async -> TaskDraft {
+        let model = await modelOutput(for: text, english: english, now: now, allowBundledModel: allowBundledModel)
         return TaskUnderstanding.draft(text: text, model: model, now: now)
     }
 
     /// Why the model is or is not in use, for Settings.
     static func status(english: Bool) -> String {
+        if !appleModelAvailable, LocalModelInterpreter.isBundled {
+            return english ? "Using the model bundled with the app (Qwen3.5-0.8B). It runs on this iPhone and does not need Apple Intelligence." : "正在使用 App 自带的本机模型（Qwen3.5-0.8B）理解，不联网，也不需要开启 Apple 智能。"
+        }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             switch SystemLanguageModel.default.availability {
@@ -38,6 +46,7 @@ enum TaskInterpreter {
 
     /// True when the model exists on this phone but the user has to turn Apple Intelligence on (or wait for the download).
     static var needsUserSetup: Bool {
+        if LocalModelInterpreter.isBundled { return false }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *) {
             switch SystemLanguageModel.default.availability {
@@ -51,6 +60,7 @@ enum TaskInterpreter {
 
     /// Loads the model ahead of the first request so the user does not wait for it.
     static func prewarm() {
+        if !appleModelAvailable { LocalModelInterpreter.prewarm(); return }
         #if canImport(FoundationModels)
         if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability {
             LanguageModelSession(instructions: "").prewarm()
@@ -58,20 +68,38 @@ enum TaskInterpreter {
         #endif
     }
 
-    private static func modelOutput(for text: String, english: Bool, now: Date) async -> ModelTaskOutput? {
+    private static var appleModelAvailable: Bool {
         #if canImport(FoundationModels)
-        if #available(iOS 26.0, *) {
-            guard case .available = SystemLanguageModel.default.availability else { return nil }
-            return await withTaskGroup(of: ModelTaskOutput?.self) { group in
-                group.addTask { await generate(text: text, english: english, now: now) }
-                group.addTask { try? await Task.sleep(for: timeout); return nil }
-                let first = await group.next() ?? nil
-                group.cancelAll()
-                return first
-            }
+        if #available(iOS 26.0, *), case .available = SystemLanguageModel.default.availability { return true }
+        #endif
+        return false
+    }
+
+    /// Apple's model when the phone has it; otherwise the model bundled with the app.
+    private static func modelOutput(for text: String, english: Bool, now: Date, allowBundledModel: Bool) async -> ModelTaskOutput? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *), appleModelAvailable {
+            return await firstResult(within: timeout) { await generate(text: text, english: english, now: now) }
         }
         #endif
+        if allowBundledModel, LocalModelInterpreter.isBundled {
+            return await firstResult(within: bundledModelTimeout) { await LocalModelInterpreter.output(for: text) }
+        }
         return nil
+    }
+
+    /// The operation's result, or nil once the time is up. Does not wait for a slow operation to finish.
+    private static func firstResult(within limit: Duration, _ operation: @escaping @Sendable () async -> ModelTaskOutput?) async -> ModelTaskOutput? {
+        let gate = ResumeOnce()
+        return await withCheckedContinuation { continuation in
+            Task { let value = await operation(); if await gate.claim() { continuation.resume(returning: value) } }
+            Task { try? await Task.sleep(for: limit); if await gate.claim() { continuation.resume(returning: nil) } }
+        }
+    }
+
+    private actor ResumeOnce {
+        private var claimed = false
+        func claim() -> Bool { if claimed { return false }; claimed = true; return true }
     }
 
     #if canImport(FoundationModels)
