@@ -100,8 +100,19 @@ struct TimelineView<Header: View>: View {
     @State private var showsPast = false
     private var isToday: Bool { store.dateKey == Date().dayKey }
     private var nowMinute: Int { Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now) }
-    /// First hour drawn. Today, folded: the hour that holds "half an hour ago". Otherwise midnight.
-    private var startHour: Int { isToday && !showsPast ? max(0, (nowMinute - 30) / 60) : 0 }
+    /// Height of the area the timeline scrolls in, measured once it is on screen.
+    @State private var viewportHeight: CGFloat = 0
+    /// First hour drawn. Today, folded: the hour that holds "half an hour ago", but never so late
+    /// that what is left of the day would not fill the screen. Otherwise midnight.
+    private var startHour: Int {
+        guard isToday, !showsPast else { return 0 }
+        let fromNow = max(0, (nowMinute - 30) / 60)
+        // Room for the fold strip and the card's padding is taken off before counting whole hours.
+        let hoursToFill = Int(((viewportHeight - 100) / hourHeight).rounded(.up))
+        return max(0, min(fromNow, endHour - max(hoursToFill, 1)))
+    }
+    /// Minutes folded away above the timeline.
+    private var foldedMinutes: Int { startHour * 60 }
     private let endHour = 24
     private let hourHeight: CGFloat = 68
 
@@ -119,13 +130,16 @@ struct TimelineView<Header: View>: View {
     /// Brings the current time to about a quarter of the way down the screen. Other days are left where they are.
     private func scrollToNow(_ proxy: ScrollViewProxy, animated: Bool) {
         guard store.dateKey == Date().dayKey, !isInteracting else { return }
+        // Folded, the timeline already begins just before now, so the top (with the fold strip) is the right place.
+        let target = showsPast ? nowAnchorID : topAnchorID
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            if animated && !reduceMotion { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(nowAnchorID, anchor: .top) } }
-            else { proxy.scrollTo(nowAnchorID, anchor: .top) }
+            if animated && !reduceMotion { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(target, anchor: .top) } }
+            else { proxy.scrollTo(target, anchor: .top) }
         }
     }
 
     private let nowAnchorID = "timeline-now"
+    private let topAnchorID = "timeline-top"
 
     /// An invisible mark 90 minutes before now (or at the first unfinished task, if that is earlier) for `scrollToNow`.
     private var nowAnchor: some View {
@@ -143,6 +157,7 @@ struct TimelineView<Header: View>: View {
     private var scroller: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DWSpacing.sm) {
+                Color.clear.frame(height: 0).id(topAnchorID)
                 if isToday { pastStrip }
                 ZStack(alignment: .topLeading) {
                     grid
@@ -170,6 +185,12 @@ struct TimelineView<Header: View>: View {
             .padding(.horizontal, DWSpacing.md).padding(.top, DWSpacing.xs).padding(.bottom, DWSpacing.lg)
         }
         .background(DWColors.background(colorScheme).ignoresSafeArea())
+        .background(GeometryReader { proxy in
+            Color.clear
+                // The scroll view's own frame already stops at the pinned header and the tab bar.
+                .onAppear { viewportHeight = proxy.size.height }
+                .onChange(of: proxy.size.height) { _, height in viewportHeight = height }
+        })
         .scrollDisabled(isInteracting)
         .scrollIndicators(.hidden)
         // The date, title and next-up card stay put; only the timeline scrolls under them.
@@ -185,7 +206,7 @@ struct TimelineView<Header: View>: View {
 
     /// "Earlier today · 2 done · 1 not done": one row standing in for the hours already gone. Tap to unfold them.
     private var pastStrip: some View {
-        let cutoff = (isToday ? max(0, (nowMinute - 30) / 60) : 0) * 60
+        let cutoff = showsPast ? max(0, (nowMinute - 30) / 60) * 60 : foldedMinutes
         let earlier = store.todayTasks.filter { $0.end <= cutoff }
         let done = earlier.filter(\.isDone).count
         let open = earlier.count - done
