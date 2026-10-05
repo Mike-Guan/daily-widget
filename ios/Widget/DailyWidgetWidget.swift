@@ -377,7 +377,7 @@ struct QuickAddAccessoryWidget: Widget {
         StaticConfiguration(kind: "DailyWidgetQuickAdd", provider: DailyWidgetProvider()) { entry in
             ZStack {
                 AccessoryWidgetBackground()
-                Image(systemName: "mic.fill").font(.title2.weight(.semibold)).widgetAccentable()
+                MicGlyph().fill(.primary).frame(width: 24, height: 24).widgetAccentable()
             }
             .containerBackground(.clear, for: .widget)
             .widgetURL(URL(string: "dailywidget://quickadd"))
