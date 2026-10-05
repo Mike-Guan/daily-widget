@@ -96,23 +96,9 @@ struct TimelineView<Header: View>: View {
     @State private var isInteracting = false
     /// Where the hold began while a new block is being drawn.
     @State private var createAnchorY: CGFloat?
-    /// Today starts at the present: earlier hours are folded into one strip until it is tapped.
-    @State private var showsPast = false
     private var isToday: Bool { store.dateKey == Date().dayKey }
     private var nowMinute: Int { Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now) }
-    /// Height of the area the timeline scrolls in, measured once it is on screen.
-    @State private var viewportHeight: CGFloat = 0
-    /// First hour drawn. Today, folded: the hour that holds "half an hour ago", but never so late
-    /// that what is left of the day would not fill the screen. Otherwise midnight.
-    private var startHour: Int {
-        guard isToday, !showsPast else { return 0 }
-        let fromNow = max(0, (nowMinute - 30) / 60)
-        // Room for the fold strip and the card's padding is taken off before counting whole hours.
-        let hoursToFill = Int(((viewportHeight - 100) / hourHeight).rounded(.up))
-        return max(0, min(fromNow, endHour - max(hoursToFill, 1)))
-    }
-    /// Minutes folded away above the timeline.
-    private var foldedMinutes: Int { startHour * 60 }
+    private let startHour = 0
     private let endHour = 24
     private let hourHeight: CGFloat = 68
 
@@ -121,8 +107,7 @@ struct TimelineView<Header: View>: View {
             scroller
                 // Open on the present: today's page starts with the red line in view instead of at midnight.
                 .onAppear { scrollToNow(proxy, animated: false) }
-                .onChange(of: store.dateKey) { _, _ in showsPast = false; scrollToNow(proxy, animated: true) }
-                .onChange(of: showsPast) { _, _ in scrollToNow(proxy, animated: true) }
+                .onChange(of: store.dateKey) { _, _ in scrollToNow(proxy, animated: true) }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { scrollToNow(proxy, animated: true) } }
         }
     }
@@ -130,16 +115,13 @@ struct TimelineView<Header: View>: View {
     /// Brings the current time to about a quarter of the way down the screen. Other days are left where they are.
     private func scrollToNow(_ proxy: ScrollViewProxy, animated: Bool) {
         guard store.dateKey == Date().dayKey, !isInteracting else { return }
-        // Folded, the timeline already begins just before now, so the top (with the fold strip) is the right place.
-        let target = showsPast ? nowAnchorID : topAnchorID
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            if animated && !reduceMotion { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(target, anchor: .top) } }
-            else { proxy.scrollTo(target, anchor: .top) }
+            if animated && !reduceMotion { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(nowAnchorID, anchor: .top) } }
+            else { proxy.scrollTo(nowAnchorID, anchor: .top) }
         }
     }
 
     private let nowAnchorID = "timeline-now"
-    private let topAnchorID = "timeline-top"
 
     /// An invisible mark 90 minutes before now (or at the first unfinished task, if that is earlier) for `scrollToNow`.
     private var nowAnchor: some View {
@@ -157,8 +139,6 @@ struct TimelineView<Header: View>: View {
     private var scroller: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DWSpacing.sm) {
-                Color.clear.frame(height: 0).id(topAnchorID)
-                if isToday { pastStrip }
                 ZStack(alignment: .topLeading) {
                     grid
                     nowAnchor
@@ -185,12 +165,6 @@ struct TimelineView<Header: View>: View {
             .padding(.horizontal, DWSpacing.md).padding(.top, DWSpacing.xs).padding(.bottom, DWSpacing.lg)
         }
         .background(DWColors.background(colorScheme).ignoresSafeArea())
-        .background(GeometryReader { proxy in
-            Color.clear
-                // The scroll view's own frame already stops at the pinned header and the tab bar.
-                .onAppear { viewportHeight = proxy.size.height }
-                .onChange(of: proxy.size.height) { _, height in viewportHeight = height }
-        })
         .scrollDisabled(isInteracting)
         .scrollIndicators(.hidden)
         // The date, title and next-up card stay put; only the timeline scrolls under them.
@@ -202,39 +176,6 @@ struct TimelineView<Header: View>: View {
             .padding(.horizontal, DWSpacing.md).padding(.top, DWSpacing.xs).padding(.bottom, DWSpacing.sm)
             .background(DWColors.background(colorScheme).ignoresSafeArea(edges: .top))
         }
-    }
-
-    /// "Earlier today · 2 done · 1 not done": one row standing in for the hours already gone. Tap to unfold them.
-    private var pastStrip: some View {
-        let cutoff = showsPast ? max(0, (nowMinute - 30) / 60) * 60 : foldedMinutes
-        let earlier = store.todayTasks.filter { $0.end <= cutoff }
-        let done = earlier.filter(\.isDone).count
-        let open = earlier.count - done
-        let english = store.language == "en"
-        var parts = [showsPast ? (english ? "Showing the whole day" : "已展开全天") : (english ? "Earlier today" : "今天已过")]
-        if earlier.isEmpty { if !showsPast { parts.append(english ? "nothing planned" : "没有安排") } }
-        else {
-            if done > 0 { parts.append(english ? "\(done) done" : "完成 \(done) 件") }
-            if open > 0 { parts.append(english ? "\(open) not done" : "未完成 \(open) 件") }
-        }
-        return Button {
-            if reduceMotion { showsPast.toggle() } else { withAnimation(.easeInOut(duration: 0.3)) { showsPast.toggle() } }
-        } label: {
-            HStack(spacing: DWSpacing.xs) {
-                Image(systemName: showsPast ? "chevron.up" : "chevron.down").font(.caption.weight(.bold)).foregroundStyle(DWColors.muted)
-                Text(parts.joined(separator: " · ")).font(DWFont.label).foregroundStyle(open > 0 && !showsPast ? DWColors.text : DWColors.muted)
-                Spacer(minLength: 0)
-                if !showsPast, cutoff > 0 { Text("00:00 – \(DWFormat.time(cutoff))").font(DWFont.caption).foregroundStyle(DWColors.muted) }
-            }
-            .padding(.horizontal, DWSpacing.md).frame(minHeight: 44)
-            .background(DWColors.surface(colorScheme), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous).stroke(DWColors.line.opacity(colorScheme == .dark ? 0.6 : 1)))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .opacity(cutoff > 0 || showsPast ? 1 : 0)
-        .frame(height: cutoff > 0 || showsPast ? nil : 0)
-        .accessibilityHint(english ? "Shows or hides the hours that have passed" : "展开或收起已经过去的时间")
     }
 
     private var grid: some View {
@@ -249,8 +190,7 @@ struct TimelineView<Header: View>: View {
     }
 
     private var tasks: some View {
-        // Tasks that ended before the first hour drawn are counted in the strip above instead.
-        ForEach(store.todayTasks.filter { $0.end > startHour * 60 }) { occurrence in
+        ForEach(store.todayTasks) { occurrence in
             TimelineTaskCard(occurrence: occurrence, pixelsPerMinute: hourHeight / 60, originMinute: startHour * 60, isInteracting: $isInteracting, selectedTask: $selectedTask, showingEditor: $showingEditor)
         }
     }

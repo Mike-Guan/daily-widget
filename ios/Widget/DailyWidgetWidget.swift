@@ -92,11 +92,15 @@ struct DailyWidgetWidgetView: View {
 
     private var mediumHome: some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                dateLabel
-                nextLink(titleLines: 1).frame(maxHeight: .infinity)
+            // The whole left column is the one place that opens the app.
+            Link(destination: nextItem.map(taskURL) ?? todayURL ?? URL(string: "dailywidget://today")!) {
+                VStack(alignment: .leading, spacing: 8) {
+                    dateLabel
+                    nextCard(titleLines: 1).frame(maxHeight: .infinity)
+                }
+                .frame(width: 150)
+                .contentShape(Rectangle())
             }
-            .frame(width: 150)
             VStack(alignment: .leading, spacing: 6) {
                 HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); voiceButton }
                 taskList(limit: 3)
@@ -203,12 +207,11 @@ struct DailyWidgetWidgetView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(text("Complete \(displayTitle(item))", "完成 \(displayTitle(item))"))
             }
-            Link(destination: taskURL(item)) {
-                HStack(spacing: 6) {
-                    Text(displayTitle(item)).font(.footnote.weight(.semibold)).foregroundStyle(DWColors.text).lineLimit(1)
-                    Spacer(minLength: 4)
-                    Text(item.start.map(time) ?? text("Any time", "全天")).font(.caption.monospacedDigit()).foregroundStyle(DWColors.muted)
-                }
+            // Rows do not open the app: only the circle acts here, so a stray tap on the list does nothing.
+            HStack(spacing: 6) {
+                Text(displayTitle(item)).font(.footnote.weight(.semibold)).foregroundStyle(DWColors.text).lineLimit(1)
+                Spacer(minLength: 4)
+                Text(item.start.map(time) ?? text("Any time", "全天")).font(.caption.monospacedDigit()).foregroundStyle(DWColors.muted)
             }
         }
         .padding(.vertical, 6)
