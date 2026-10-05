@@ -98,7 +98,7 @@ struct DailyWidgetWidgetView: View {
             }
             .frame(width: 150)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); micButton }
+                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); voiceButton }
                 taskList(limit: 3)
                 Spacer(minLength: 0)
             }
@@ -115,7 +115,7 @@ struct DailyWidgetWidgetView: View {
             HStack {
                 Text(text("Inbox \(entry.snapshot.inboxCount)", "收集箱 \(entry.snapshot.inboxCount) 件")).font(.caption).foregroundStyle(DWColors.muted)
                 Spacer(minLength: 4)
-                micButton
+                voiceButton
             }
         }
     }
@@ -170,7 +170,6 @@ struct DailyWidgetWidgetView: View {
                         .font(.caption.monospacedDigit()).opacity(0.9).lineLimit(1)
                 }
             } else {
-                Image(systemName: "checkmark.circle.fill").font(.callout)
                 Text(entry.snapshot.total == 0 ? text("Nothing planned", "今天还没有安排") : text("All clear today", "今天清空了")).font(.callout.weight(.bold)).lineLimit(2)
             }
         }
@@ -214,11 +213,11 @@ struct DailyWidgetWidgetView: View {
         .padding(.vertical, 6)
     }
 
-    private var micButton: some View {
+    private var voiceButton: some View {
         Link(destination: URL(string: "dailywidget://quickadd")!) {
-            Image(systemName: "mic.fill").font(.footnote.weight(.semibold)).foregroundStyle(DWColors.accent)
-                .frame(width: 34, height: 34)
-                .background(DWColors.accentSoft, in: Circle())
+            Text(text("Add", "记一件事")).font(.caption.weight(.bold)).foregroundStyle(DWColors.accent).lineLimit(1)
+                .padding(.horizontal, 12).frame(height: 30)
+                .background(DWColors.accentSoft, in: Capsule())
         }
         .accessibilityLabel(text("Add a task by voice", "语音记一件事"))
     }
