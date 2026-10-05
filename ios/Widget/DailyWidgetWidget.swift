@@ -98,7 +98,7 @@ struct DailyWidgetWidgetView: View {
             }
             .frame(width: 150)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); micButton }
+                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); voiceButton }
                 taskList(limit: 3)
                 Spacer(minLength: 0)
             }
@@ -115,7 +115,7 @@ struct DailyWidgetWidgetView: View {
             HStack {
                 Text(text("Inbox \(entry.snapshot.inboxCount)", "收集箱 \(entry.snapshot.inboxCount) 件")).font(.caption).foregroundStyle(DWColors.muted)
                 Spacer(minLength: 4)
-                micButton
+                voiceButton
             }
         }
     }
@@ -170,7 +170,6 @@ struct DailyWidgetWidgetView: View {
                         .font(.caption.monospacedDigit()).opacity(0.9).lineLimit(1)
                 }
             } else {
-                Image(systemName: "checkmark.circle.fill").font(.callout)
                 Text(entry.snapshot.total == 0 ? text("Nothing planned", "今天还没有安排") : text("All clear today", "今天清空了")).font(.callout.weight(.bold)).lineLimit(2)
             }
         }
@@ -214,9 +213,9 @@ struct DailyWidgetWidgetView: View {
         .padding(.vertical, 6)
     }
 
-    private var micButton: some View {
+    private var voiceButton: some View {
         Link(destination: URL(string: "dailywidget://quickadd")!) {
-            Image(systemName: "mic.fill").font(.footnote.weight(.semibold)).foregroundStyle(DWColors.accent)
+            MicGlyph().fill(DWColors.accent).frame(width: 17, height: 17)
                 .frame(width: 34, height: 34)
                 .background(DWColors.accentSoft, in: Circle())
         }
@@ -353,13 +352,32 @@ struct DailyWidgetWidgetView: View {
     private func text(_ english: String, _ chinese: String) -> String { entry.snapshot.language == "en" ? english : chinese }
 }
 
+/// The widget's own microphone mark, drawn on a 16 x 16 grid.
+struct MicGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let scale = min(rect.width, rect.height) / 16
+        let origin = CGPoint(x: rect.midX - 8 * scale, y: rect.midY - 8 * scale)
+        func box(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> CGRect {
+            CGRect(x: origin.x + x * scale, y: origin.y + y * scale, width: width * scale, height: height * scale)
+        }
+        var path = Path()
+        path.addRoundedRect(in: box(5.25, 1, 5.5, 9), cornerSize: CGSize(width: 2.75 * scale, height: 2.75 * scale))
+        var arc = Path()
+        arc.addArc(center: CGPoint(x: origin.x + 8 * scale, y: origin.y + 7.4 * scale), radius: 4.6 * scale, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
+        path.addPath(arc.strokedPath(StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round)))
+        path.addRoundedRect(in: box(7.2, 12, 1.6, 2.2), cornerSize: CGSize(width: 0.4 * scale, height: 0.4 * scale))
+        path.addRoundedRect(in: box(5, 13.6, 6, 1.6), cornerSize: CGSize(width: 0.8 * scale, height: 0.8 * scale))
+        return path
+    }
+}
+
 /// A lock-screen circle that opens voice capture.
 struct QuickAddAccessoryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "DailyWidgetQuickAdd", provider: DailyWidgetProvider()) { entry in
             ZStack {
                 AccessoryWidgetBackground()
-                Image(systemName: "mic.fill").font(.title2.weight(.semibold)).widgetAccentable()
+                MicGlyph().fill(.primary).frame(width: 24, height: 24).widgetAccentable()
             }
             .containerBackground(.clear, for: .widget)
             .widgetURL(URL(string: "dailywidget://quickadd"))
