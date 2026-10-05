@@ -589,13 +589,15 @@ private struct QuickCreateSheet: View {
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
     @State private var title = ""
+    @FocusState private var nameFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text(text("What is this time for?", "这段时间要做什么？")).font(.headline)
                 Text("\(time(task.start ?? 0)) – \(time(task.end ?? 0))").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-                TextField(text("Task name", "任务名称"), text: $title).textFieldStyle(.roundedBorder).submitLabel(.done).onSubmit { _ = save() }
+                TextField(text("Task name", "任务名称"), text: $title).textFieldStyle(.roundedBorder).submitLabel(.done).focused($nameFocused).onSubmit { _ = save() }
                 Button { if save() { showingEditor = true } } label: { Label(text("Add details", "补充详情"), systemImage: "slider.horizontal.3") }.buttonStyle(.bordered).disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Spacer()
             }
@@ -603,8 +605,12 @@ private struct QuickCreateSheet: View {
             .navigationTitle(text("New task", "新任务"))
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button(text("Cancel", "取消")) { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button(text("Save", "保存")) { _ = save() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }
         }
+        .tint(DWColors.accent)
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
+        .presentationBackground(DWColors.surface(colorScheme))
+        // The block was just drawn; the next thing to do is name it.
+        .onAppear { nameFocused = true }
     }
 
     private func save() -> Bool { let name = title.trimmingCharacters(in: .whitespacesAndNewlines); guard !name.isEmpty else { return false }; var value = task; value.title = name; store.save(value); selectedTask = value; dismiss(); return true }
