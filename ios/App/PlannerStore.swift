@@ -146,14 +146,7 @@ final class PlannerStore: ObservableObject {
     }
 
     private func refreshWidgetSnapshot() {
-        guard let container = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.guanshiyang.dailywidget") else { return }
-        let tasks = tasks(for: Date().dayKey)
-        let nowMinute = Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now)
-        func item(_ task: ScheduledOccurrence) -> WidgetSnapshot.Item { .init(id: task.task.id, title: task.title, start: task.start, end: task.end, done: task.isDone, category: task.category, recurrence: task.task.recurrence, date: task.sourceDate) }
-        let current = tasks.first { $0.start <= nowMinute && $0.end > nowMinute && !$0.isDone }
-        let remaining = tasks.filter { !$0.isDone && $0.id != current?.id }.sorted { ($0.isFocus ? 0 : 1, $0.start) < ($1.isFocus ? 0 : 1, $1.start) }
-        let snapshot = WidgetSnapshot(date: Date().dayKey, completed: tasks.filter(\.isDone).count, total: tasks.count, current: current.map(item), upcoming: remaining.prefix(3).map(item), updatedAt: .now, language: language)
-        if let data = try? encoder.encode(snapshot) { try? data.write(to: container.appendingPathComponent("widget-today.json"), options: .atomic); WidgetCenter.shared.reloadAllTimelines() }
+        if WidgetSnapshot.write(tasks: records, language: language) { WidgetCenter.shared.reloadAllTimelines() }
     }
 
     private nonisolated static func synchronize(localRecords: [PlannerTask], folder: URL) throws -> [PlannerTask] {
