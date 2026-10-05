@@ -51,6 +51,23 @@ final class PlannerStore: ObservableObject {
         do { records = try repository.upsert(task, language: language) } catch { syncState = .failure(error.localizedDescription) }
     }
 
+    /// The task most recently added by voice or quick add, while its Undo banner is showing.
+    @Published var recentlyAdded: PlannerTask?
+
+    func addFromQuickAdd(_ draft: TaskDraft) {
+        var task = newTask()
+        task.apply(draft)
+        save(task)
+        if let date = draft.date { selectedDate = .date(fromKey: date) }
+        recentlyAdded = records.first { $0.id == task.id }
+    }
+
+    func undoRecentlyAdded() {
+        guard let task = recentlyAdded else { return }
+        recentlyAdded = nil
+        delete(task)
+    }
+
     func delete(_ task: PlannerTask) {
         var deleted = task
         deleted.deletedAt = ISO8601DateFormatter().string(from: .now)

@@ -23,13 +23,13 @@ struct ContentView: View {
             page(.topThree) { TopThreePage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
             page(.review) { DailyReviewPage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { addedBanner; bottomBar } }
         .tint(DWColors.accent)
         .preferredColorScheme(colorScheme)
         .sheet(isPresented: $showingEditor) { if let task = selectedTask { TaskEditor(task: task) } }
         .sheet(isPresented: $showingQuickCreate) { if let task = selectedTask { QuickCreateSheet(task: task, selectedTask: $selectedTask, showingEditor: $showingEditor) } }
         .sheet(isPresented: $showingSettings) { SettingsView() }
-        .sheet(isPresented: $showingQuickAdd) { QuickAddSheet() }
+        .sheet(isPresented: $showingQuickAdd) { QuickAddSheet(selectedTask: $selectedTask, showingEditor: $showingEditor) }
         .fileImporter(isPresented: $pickingSyncFolder, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { store.setSyncFolder(url) }
         }
@@ -106,6 +106,34 @@ struct ContentView: View {
             Label(message, systemImage: "exclamationmark.triangle.fill").font(DWFont.caption).foregroundStyle(DWColors.danger).lineLimit(2)
         case .synced, .localOnly:
             EmptyView()
+        }
+    }
+
+    // MARK: Added banner with Undo
+
+    @ViewBuilder private var addedBanner: some View {
+        if let task = store.recentlyAdded {
+            HStack(spacing: DWSpacing.sm) {
+                Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(DWColors.accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(text("Added", "已添加") + " · " + task.title).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
+                    Text(AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end, category: task.category, recurrence: task.recurrence, notes: task.notes), english: store.language == "en").when).font(DWFont.caption).foregroundStyle(DWColors.muted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button { selectedTask = task; store.recentlyAdded = nil; showingEditor = true } label: { Text(text("Edit", "改一下")).font(DWFont.label).frame(minWidth: 44, minHeight: 44) }
+                Button { store.undoRecentlyAdded() } label: { Text(text("Undo", "撤销")).font(DWFont.label).frame(minWidth: 44, minHeight: 44) }
+            }
+            .padding(.horizontal, DWSpacing.md).padding(.vertical, DWSpacing.xxs)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous).stroke(DWColors.line.opacity(0.6)))
+            .shadow(color: .black.opacity(0.08), radius: 16, y: 6)
+            .padding(.horizontal, DWSpacing.md)
+            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            .task(id: task.id) {
+                try? await Task.sleep(for: .seconds(QuickAddPolicy.undoWindow))
+                if !Task.isCancelled, store.recentlyAdded?.id == task.id { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.recentlyAdded = nil } }
+            }
+            .accessibilityElement(children: .contain)
         }
     }
 
@@ -389,70 +417,144 @@ private struct DailyReviewPage: View {
 // MARK: Quick add (type or dictate) with the same confirmation card as Siri
 
 private struct QuickAddSheet: View {
+    private enum Stage: Equatable { case input, understanding, confirm }
+
     @EnvironmentObject private var store: PlannerStore
     @Environment(\.dismiss) private var dismiss
-    @State private var input = ""
-    @State private var confirming = false
-    @FocusState private var fieldFocused: Bool
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding var selectedTask: PlannerTask?
+    @Binding var showingEditor: Bool
+    @StateObject private var dictation = SpeechDictation()
+    @State private var input = ""
+    @State private var stage: Stage = .input
+    @State private var draft: TaskDraft?
+    @FocusState private var fieldFocused: Bool
 
+    private var english: Bool { store.language == "en" }
     private var trimmed: String { input.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var parsed: QuickInputParser.Result { QuickInputParser.parse(trimmed) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DWSpacing.md) {
             HStack {
-                Text(confirming ? text("Add this?", "这样添加？") : text("Quick add", "快速添加")).font(DWFont.title)
+                Text(heading).font(DWFont.title)
                 Spacer()
-                Button { dismiss() } label: { Image(systemName: "xmark").font(.body.weight(.semibold)).foregroundStyle(DWColors.muted).frame(width: 44, height: 44) }.accessibilityLabel(text("Close", "关闭"))
+                Button { dictation.stop(); dismiss() } label: { Image(systemName: "xmark").font(.body.weight(.semibold)).foregroundStyle(DWColors.muted).frame(width: 44, height: 44) }.accessibilityLabel(text("Close", "关闭"))
             }
-            if confirming { confirmation } else { editor }
+            switch stage {
+            case .input: editor
+            case .understanding: understanding
+            case .confirm: confirmation
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, DWSpacing.lg).padding(.top, DWSpacing.md)
         .tint(DWColors.accent)
-        .presentationDetents([.height(380)])
+        .presentationDetents([.height(420)])
         .presentationDragIndicator(.visible)
         .presentationBackground(DWColors.surface(colorScheme))
-        .onAppear { fieldFocused = true }
+        .task { TaskInterpreter.prewarm(); await dictation.start(english: english) }
+        .onChange(of: dictation.transcript) { _, value in if dictation.isListening { input = value } }
+        .onDisappear { dictation.stop() }
+    }
+
+    private var heading: String {
+        switch stage {
+        case .input: return dictation.isListening ? text("Listening…", "正在听…") : text("Quick add", "快速添加")
+        case .understanding: return text("Understanding…", "正在理解…")
+        case .confirm: return text("Add this?", "这样添加？")
+        }
     }
 
     private var editor: some View {
         VStack(alignment: .leading, spacing: DWSpacing.sm) {
             TextField(text("Tomorrow 3pm dentist", "明天下午三点牙医"), text: $input, axis: .vertical)
                 .font(.title3).lineLimit(1...3).focused($fieldFocused).submitLabel(.done)
-                .onChange(of: input) { _, value in if value.contains("\n") { input = value.replacingOccurrences(of: "\n", with: ""); review() } }
+                .onChange(of: input) { _, value in if value.contains("\n") { input = value.replacingOccurrences(of: "\n", with: ""); understand() } }
                 .padding(DWSpacing.md)
                 .background(DWColors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
-            Label(text("Tap the microphone on the keyboard to dictate. No time means Inbox.", "点键盘上的麦克风可以直接说。没说时间就放进收集箱。"), systemImage: "mic.fill").font(DWFont.body).foregroundStyle(DWColors.muted)
-            Button(action: review) { Text(text("Next", "下一步")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
-                .buttonStyle(.borderedProminent).tint(DWColors.accent).foregroundStyle(trimmed.isEmpty ? DWColors.muted : DWColors.onAccent).disabled(trimmed.isEmpty)
-        }
-    }
-
-    private var confirmation: some View {
-        let summary = AddTaskSummary(parsed: parsed, english: store.language == "en")
-        return VStack(alignment: .leading, spacing: DWSpacing.sm) {
-            Label(trimmed, systemImage: "quote.opening").font(DWFont.body).foregroundStyle(DWColors.muted).lineLimit(2)
-            AddTaskConfirmationView(summary: summary)
-                .background(DWColors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+                .disabled(dictation.isListening)
+            Text(hint).font(DWFont.body).foregroundStyle(DWColors.muted).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: DWSpacing.sm) {
-                Button { confirming = false; fieldFocused = true } label: { Text(text("Edit", "改一下")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
-                    .buttonStyle(.bordered).tint(DWColors.accent)
-                Button(action: save) { Text(text("OK", "好")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
-                    .buttonStyle(.borderedProminent).tint(DWColors.accent).foregroundStyle(DWColors.onAccent)
+                Button {
+                    if dictation.isListening { input = dictation.stop(); understand() } else { fieldFocused = false; Task { await dictation.start(english: english) } }
+                } label: {
+                    Label(dictation.isListening ? text("Done", "说完了") : text("Speak", "说话"), systemImage: dictation.isListening ? "stop.fill" : "mic.fill").font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50)
+                }
+                .buttonStyle(.borderedProminent).tint(dictation.isListening ? DWColors.now : DWColors.accent).foregroundStyle(dictation.isListening ? Color.white : DWColors.onAccent)
+                if !dictation.isListening {
+                    Button(action: understand) { Text(text("Next", "下一步")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
+                        .buttonStyle(.bordered).tint(DWColors.accent).disabled(trimmed.isEmpty)
+                }
             }
         }
     }
 
-    private func review() { guard !trimmed.isEmpty else { return }; fieldFocused = false; confirming = true }
+    private var hint: String {
+        if case .unavailable(let reason) = dictation.state { return reason }
+        return dictation.isListening ? text("Say it in one sentence, then tap Done.", "用一句话说出来，说完点“说完了”。") : text("Speak or type. No time means Inbox.", "可以说，也可以打字。没说时间就放进收集箱。")
+    }
 
-    private func save() {
-        let result = parsed
-        var task = store.newTask(date: result.date, start: result.start, end: result.end)
-        task.title = result.title
-        store.save(task)
-        if let date = result.date { store.selectedDate = .date(fromKey: date) }
+    private var understanding: some View {
+        VStack(alignment: .leading, spacing: DWSpacing.sm) {
+            Label(trimmed, systemImage: "quote.opening").font(DWFont.body).foregroundStyle(DWColors.muted).lineLimit(3)
+            HStack(spacing: DWSpacing.xs) { ProgressView(); Text(text("Working it out on this iPhone", "正在本机理解这句话")).font(DWFont.body).foregroundStyle(DWColors.muted) }
+                .frame(maxWidth: .infinity, minHeight: 72)
+                .background(DWColors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+        }
+    }
+
+    @ViewBuilder private var confirmation: some View {
+        if let draft {
+            VStack(alignment: .leading, spacing: DWSpacing.sm) {
+                Label(trimmed, systemImage: "quote.opening").font(DWFont.body).foregroundStyle(DWColors.muted).lineLimit(2)
+                AddTaskConfirmationView(summary: AddTaskSummary(draft: draft, english: english))
+                    .background(DWColors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+                HStack(spacing: DWSpacing.sm) {
+                    Button { edit(draft) } label: { Text(text("Edit", "改一下")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
+                        .buttonStyle(.bordered).tint(DWColors.accent)
+                    Button { save(draft) } label: { Text(text("OK", "好")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
+                        .buttonStyle(.borderedProminent).tint(DWColors.accent).foregroundStyle(DWColors.onAccent)
+                }
+                Button { stage = .input; Task { await dictation.start(english: english) } } label: { Label(text("Say it again", "重说一遍"), systemImage: "arrow.counterclockwise").font(DWFont.label).frame(maxWidth: .infinity, minHeight: 44) }
+                    .buttonStyle(.plain).foregroundStyle(DWColors.muted)
+            }
+        }
+    }
+
+    private func understand() {
+        let sentence = trimmed
+        guard !sentence.isEmpty, stage == .input else { return }
+        fieldFocused = false
+        stage = .understanding
+        Task {
+            let result = await TaskInterpreter.interpret(sentence, english: english)
+            if QuickAddPolicy.addsImmediately {
+                store.addFromQuickAdd(result)
+                dismiss()
+                return
+            }
+            draft = result
+            if reduceMotion { stage = .confirm } else { withAnimation(.easeOut(duration: 0.2)) { stage = .confirm } }
+        }
+    }
+
+    private func task(from draft: TaskDraft) -> PlannerTask {
+        var task = store.newTask()
+        task.apply(draft)
+        return task
+    }
+
+    /// Opens the full editor with everything prefilled; nothing is saved until the user saves there.
+    private func edit(_ draft: TaskDraft) {
+        selectedTask = task(from: draft)
+        dismiss()
+        showingEditor = true
+    }
+
+    private func save(_ draft: TaskDraft) {
+        store.save(task(from: draft))
+        if let date = draft.date { store.selectedDate = .date(fromKey: date) }
         dismiss()
     }
 

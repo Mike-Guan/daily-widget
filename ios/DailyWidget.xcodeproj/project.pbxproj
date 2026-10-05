@@ -33,6 +33,11 @@
 		A10000000000000000000024 /* QuickInputParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* QuickInputParserTests.swift */; };
 		A10000000000000000000025 /* AppShortcuts.strings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* AppShortcuts.strings */; };
 		A10000000000000000000026 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* Localizable.strings */; };
+		A10000000000000000000027 /* TaskUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* TaskUnderstanding.swift */; };
+		A10000000000000000000028 /* TaskUnderstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000029 /* TaskUnderstanding.swift */; };
+		A10000000000000000000029 /* TaskInterpreter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* TaskInterpreter.swift */; };
+		A10000000000000000000030 /* SpeechDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* SpeechDictation.swift */; };
+		A10000000000000000000031 /* TaskUnderstandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* TaskUnderstandingTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +91,10 @@
 		A20000000000000000000026 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/AppShortcuts.strings"; sourceTree = "<group>"; };
 		A20000000000000000000027 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "en"; path = "en.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		A20000000000000000000028 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		A20000000000000000000029 /* TaskUnderstanding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskUnderstanding.swift; sourceTree = "<group>"; };
+		A20000000000000000000030 /* TaskInterpreter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskInterpreter.swift; sourceTree = "<group>"; };
+		A20000000000000000000031 /* SpeechDictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechDictation.swift; sourceTree = "<group>"; };
+		A20000000000000000000032 /* TaskUnderstandingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskUnderstandingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXVariantGroup section */
@@ -153,6 +162,8 @@
 				A20000000000000000000003 /* TimelineView.swift */,
 				A20000000000000000000004 /* PlannerStore.swift */,
 				A20000000000000000000021 /* AddTaskIntent.swift */,
+				A20000000000000000000030 /* TaskInterpreter.swift */,
+				A20000000000000000000031 /* SpeechDictation.swift */,
 				A20000000000000000000023 /* AppShortcuts.strings */,
 				A20000000000000000000024 /* Localizable.strings */,
 				A20000000000000000000010 /* Info.plist */,
@@ -170,6 +181,7 @@
 				A20000000000000000000015 /* DesignSystem.swift */,
 				A20000000000000000000016 /* TaskRepository.swift */,
 				A20000000000000000000020 /* QuickInputParser.swift */,
+				A20000000000000000000029 /* TaskUnderstanding.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -200,6 +212,7 @@
 				A20000000000000000000017 /* TaskRepositoryTests.swift */,
 				A20000000000000000000018 /* WidgetSnapshotTests.swift */,
 				A20000000000000000000022 /* QuickInputParserTests.swift */,
+				A20000000000000000000032 /* TaskUnderstandingTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -341,6 +354,9 @@
 				A10000000000000000000014 /* TaskRepository.swift in Sources */,
 				A10000000000000000000021 /* QuickInputParser.swift in Sources */,
 				A10000000000000000000023 /* AddTaskIntent.swift in Sources */,
+				A10000000000000000000027 /* TaskUnderstanding.swift in Sources */,
+				A10000000000000000000029 /* TaskInterpreter.swift in Sources */,
+				A10000000000000000000030 /* SpeechDictation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -355,6 +371,8 @@
 				A10000000000000000000020 /* WidgetSnapshotTests.swift in Sources */,
 				A10000000000000000000022 /* QuickInputParser.swift in Sources */,
 				A10000000000000000000024 /* QuickInputParserTests.swift in Sources */,
+				A10000000000000000000028 /* TaskUnderstanding.swift in Sources */,
+				A10000000000000000000031 /* TaskUnderstandingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
