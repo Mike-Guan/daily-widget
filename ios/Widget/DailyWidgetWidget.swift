@@ -102,7 +102,8 @@ struct DailyWidgetWidgetView: View {
                 .contentShape(Rectangle())
             }
             VStack(alignment: .leading, spacing: 6) {
-                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); voiceButton }
+                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4) }
+                    .frame(minHeight: 20)
                 taskList(limit: 3)
                 Spacer(minLength: 0)
             }
@@ -119,7 +120,6 @@ struct DailyWidgetWidgetView: View {
             HStack {
                 Text(text("Inbox \(entry.snapshot.inboxCount)", "收集箱 \(entry.snapshot.inboxCount) 件")).font(.caption).foregroundStyle(DWColors.muted)
                 Spacer(minLength: 4)
-                voiceButton
             }
         }
     }
@@ -217,17 +217,6 @@ struct DailyWidgetWidgetView: View {
         .padding(.vertical, 6)
     }
 
-    /// On iOS 18 and later the microphone listens in the background and shows a Live Activity;
-    /// before that it opens the app's voice sheet.
-    @ViewBuilder private var voiceButton: some View {
-        let mark = MicGlyph().fill(DWColors.accent).frame(width: 17, height: 17)
-            .frame(width: 34, height: 34)
-            .background(DWColors.accentSoft, in: Circle())
-        if #available(iOS 18.0, *) {
-            Button(intent: RecordTaskIntent()) { mark }.buttonStyle(.plain).accessibilityLabel(text("Add a task by voice", "语音记一件事"))
-        } else {
-            Link(destination: URL(string: "dailywidget://quickadd")!) { mark }.accessibilityLabel(text("Add a task by voice", "语音记一件事"))
-        }
     }
 
     /// The task shown in the big card: the one running now, otherwise the earliest one still to come.
