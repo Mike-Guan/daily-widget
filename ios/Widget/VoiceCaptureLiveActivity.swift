@@ -9,7 +9,7 @@ struct VoiceCaptureLiveActivity: Widget {
         ActivityConfiguration(for: VoiceCaptureAttributes.self) { context in
             VoiceCaptureStrip(state: context.state)
                 .padding(DWSpacing.md)
-                .widgetURL(URL(string: "dailywidget://today"))
+                .widgetURL(URL(string: context.state.phase == .failed ? "dailywidget://quickadd" : "dailywidget://today"))
                 .activityBackgroundTint(Color(.secondarySystemBackground))
                 .activitySystemActionForegroundColor(DWColors.accent)
         } dynamicIsland: { context in
@@ -41,7 +41,7 @@ struct VoiceCaptureLiveActivity: Widget {
                 VoiceCaptureMark(state: context.state, size: 16)
             }
             .keylineTint(DWColors.accent)
-            .widgetURL(URL(string: "dailywidget://today"))
+            .widgetURL(URL(string: context.state.phase == .failed ? "dailywidget://quickadd" : "dailywidget://today"))
         }
     }
 }

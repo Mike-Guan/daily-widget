@@ -40,13 +40,20 @@ final class BackgroundVoiceCapture {
             await finish(with: .init(phase: .failed, title: english ? "Open the app and tap the microphone once to allow it" : "先打开 App 点一次麦克风，允许后再用", english: english), keepFor: 8)
             return
         }
-        await dictation.start(english: english)
+        // From the background the microphone is only granted once the system has registered the
+        // Live Activity, which can lag the request by a moment, so try a few times before giving up.
+        for attempt in 1...4 {
+            await dictation.start(english: english)
+            if dictation.isListening { if attempt > 1 { VoiceCaptureLog.note("microphone started on attempt \(attempt)") }; break }
+            VoiceCaptureLog.note("attempt \(attempt) failed · \(dictation.lastFailure)")
+            try? await Task.sleep(for: .milliseconds(350))
+        }
         setListening(dictation.isListening)
         guard dictation.isListening else {
             var reason = english ? "Could not start listening" : "没能开始听"
             if case .unavailable(let message) = dictation.state { reason = message }
             VoiceCaptureLog.note("dictation did not start: \(reason)")
-            await finish(with: .init(phase: .failed, title: reason, english: english), keepFor: 8)
+            await finish(with: .init(phase: .failed, title: english ? "Could not listen from here. Tap to open the app and speak." : "这里没能开始听，点一下打开 App 再说", english: english), keepFor: 10)
             return
         }
 

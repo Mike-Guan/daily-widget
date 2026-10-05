@@ -76,7 +76,7 @@ enum VoiceCaptureLog {
         let formatter = DateFormatter(); formatter.dateFormat = "HH:mm:ss"
         var lines = defaults?.stringArray(forKey: key) ?? []
         lines.append("\(formatter.string(from: .now)) [\(ProcessInfo.processInfo.processName)] \(message)")
-        defaults?.set(Array(lines.suffix(14)), forKey: key)
+        defaults?.set(Array(lines.suffix(40)), forKey: key)
     }
 
     static var lines: [String] { defaults?.stringArray(forKey: key) ?? [] }
