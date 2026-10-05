@@ -109,7 +109,7 @@ struct DailyWidgetWidgetView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack { dateLabel; Spacer(minLength: 4); countLabel(text("\(entry.snapshot.completed)/\(entry.snapshot.total) done", "\(entry.snapshot.completed)/\(entry.snapshot.total) 完成")) }
             progressBar
-            nextLink(titleLines: 1, showsEnd: true)
+            nextLink(titleLines: 1, showsEnd: true, fills: false)
             taskList(limit: 4)
             Spacer(minLength: 0)
             HStack {
@@ -154,14 +154,15 @@ struct DailyWidgetWidgetView: View {
     }
 
     @ViewBuilder
-    private func nextLink(titleLines: Int, showsEnd: Bool = false) -> some View {
-        if let item = nextItem { Link(destination: taskURL(item)) { nextCard(titleLines: titleLines, showsEnd: showsEnd) } }
-        else { nextCard(titleLines: titleLines, showsEnd: showsEnd) }
+    private func nextLink(titleLines: Int, showsEnd: Bool = false, fills: Bool = true) -> some View {
+        if let item = nextItem { Link(destination: taskURL(item)) { nextCard(titleLines: titleLines, showsEnd: showsEnd, fills: fills) } }
+        else { nextCard(titleLines: titleLines, showsEnd: showsEnd, fills: fills) }
     }
 
-    private func nextCard(titleLines: Int, showsEnd: Bool = false) -> some View {
+    /// - Parameter fills: true where the card takes the remaining height and its text sits at the bottom (small, medium).
+    private func nextCard(titleLines: Int, showsEnd: Bool = false, fills: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Spacer(minLength: 0)
+            if fills { Spacer(minLength: 0) }
             if let item = nextItem {
                 Text(item.id == entry.snapshot.current?.id ? text("Now", "进行中") : text("Next", "下一件")).font(.caption2.weight(.semibold)).opacity(0.85)
                 Text(displayTitle(item)).font(.callout.weight(.bold)).lineLimit(titleLines).multilineTextAlignment(.leading)
@@ -233,10 +234,21 @@ struct DailyWidgetWidgetView: View {
         visibleItems.filter { $0.id != nextItem?.id }.sorted { ($0.start ?? Int.max) < ($1.start ?? Int.max) }
     }
 
+    /// "35 分钟后" before the task starts, "还剩 40 分钟" while it runs. The number counts down on its
+    /// own; the system updates relative dates without a timeline reload.
     private func countdown(_ item: WidgetSnapshot.Item) -> Text {
-        guard let date = startDate(item), date > entry.date else { return Text(text("now", "进行中")) }
-        // Counts down on its own; the system updates relative dates without a timeline reload.
-        return Text(date, style: .relative)
+        if let start = startDate(item), start > entry.date {
+            return entry.snapshot.language == "en" ? Text("in ") + Text(start, style: .relative) : Text(start, style: .relative) + Text("后")
+        }
+        if let end = endDate(item), end > entry.date {
+            return entry.snapshot.language == "en" ? Text(end, style: .relative) + Text(" left") : Text("还剩 ") + Text(end, style: .relative)
+        }
+        return Text(text("now", "进行中"))
+    }
+
+    private func endDate(_ item: WidgetSnapshot.Item) -> Date? {
+        guard let end = item.end else { return nil }
+        return Calendar.current.date(byAdding: .minute, value: end, to: Calendar.current.startOfDay(for: Date.date(fromKey: entry.snapshot.date)))
     }
 
     private func timeRange(_ item: WidgetSnapshot.Item) -> String {
