@@ -37,6 +37,16 @@ final class WidgetSnapshotTests: XCTestCase {
         XCTAssertNil(WidgetSnapshot.build(tasks: tasks, dateKey: "2026-10-05", nowMinute: 0, language: "zh").current)
     }
 
+    func testInboxCountSkipsDoneAndDeletedTasks() throws {
+        var inbox = PlannerTask(id: "inbox", date: nil, start: nil, end: nil, title: "inbox", createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", updatedBy: "test")
+        var done = inbox; done.id = "done"; done.done = true
+        var deleted = inbox; deleted.id = "deleted"; deleted.deletedAt = "2026-10-02T00:00:00Z"
+        let snapshot = WidgetSnapshot.build(tasks: [inbox, done, deleted, task("today", date: "2026-10-05", start: 600, end: 660)], dateKey: "2026-10-05", nowMinute: 0, language: "zh")
+        XCTAssertEqual(snapshot.inboxCount, 1)
+        let decoded = try JSONDecoder().decode(WidgetSnapshot.self, from: JSONEncoder().encode(snapshot))
+        XCTAssertEqual(decoded.inboxCount, 1)
+    }
+
     func testResolveSwitchesDayAtMidnight() throws {
         let tasks = [task("today", date: "2026-10-05", start: 600, end: 660), task("tomorrow", date: "2026-10-06", start: 540, end: 600)]
         WidgetSnapshot.write(tasks: tasks, now: date(2026, 10, 5, 12, 0), language: "en", to: directory)

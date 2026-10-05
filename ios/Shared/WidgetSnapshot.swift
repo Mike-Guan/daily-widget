@@ -19,6 +19,8 @@ struct WidgetSnapshot: Codable {
     var upcoming: [Item]
     var updatedAt: Date
     var language: String = "zh"
+    /// Undated tasks waiting in the Inbox.
+    var inboxCount: Int = 0
     /// Snapshots for the days after `date` (currently just tomorrow), so the widget can roll over at midnight without the app running.
     var following: [WidgetSnapshot] = []
 }
@@ -39,7 +41,7 @@ extension WidgetSnapshot.Item {
 }
 
 extension WidgetSnapshot {
-    private enum CodingKeys: String, CodingKey { case date, completed, total, current, upcoming, updatedAt, language, following }
+    private enum CodingKeys: String, CodingKey { case date, completed, total, current, upcoming, updatedAt, language, inboxCount, following }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         date = try values.decodeIfPresent(String.self, forKey: .date) ?? Date().dayKey
@@ -49,6 +51,7 @@ extension WidgetSnapshot {
         upcoming = try values.decodeIfPresent([Item].self, forKey: .upcoming) ?? []
         updatedAt = try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .now
         language = try values.decodeIfPresent(String.self, forKey: .language) ?? "zh"
+        inboxCount = try values.decodeIfPresent(Int.self, forKey: .inboxCount) ?? 0
         following = try values.decodeIfPresent([WidgetSnapshot].self, forKey: .following) ?? []
     }
 }
@@ -70,7 +73,8 @@ extension WidgetSnapshot {
         func item(_ task: ScheduledOccurrence) -> Item { .init(id: task.task.id, title: task.title, start: task.start, end: task.end, done: task.isDone, category: task.category, recurrence: task.task.recurrence, date: task.sourceDate) }
         let current = occurrences.first { $0.start <= nowMinute && $0.end > nowMinute && !$0.isDone }
         let remaining = occurrences.filter { !$0.isDone && $0.id != current?.id }.sorted { ($0.isFocus ? 0 : 1, $0.start) < ($1.isFocus ? 0 : 1, $1.start) }
-        return WidgetSnapshot(date: dateKey, completed: occurrences.filter(\.isDone).count, total: occurrences.count, current: current.map(item), upcoming: remaining.prefix(5).map(item), updatedAt: .now, language: language)
+        let inboxCount = tasks.filter { $0.date == nil && $0.deletedAt == nil && !$0.done }.count
+        return WidgetSnapshot(date: dateKey, completed: occurrences.filter(\.isDone).count, total: occurrences.count, current: current.map(item), upcoming: remaining.prefix(5).map(item), updatedAt: .now, language: language, inboxCount: inboxCount)
     }
 
     /// Today's snapshot with tomorrow's attached in `following`.
