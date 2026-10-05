@@ -85,6 +85,7 @@ struct TimelineView<Header: View>: View {
     @EnvironmentObject private var store: PlannerStore
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
     @Binding var showingQuickCreate: Bool
@@ -100,12 +101,45 @@ struct TimelineView<Header: View>: View {
     private let hourHeight: CGFloat = 68
 
     var body: some View {
+        ScrollViewReader { proxy in
+            scroller
+                // Open on the present: today's page starts with the red line in view instead of at midnight.
+                .onAppear { scrollToNow(proxy, animated: false) }
+                .onChange(of: store.dateKey) { _, _ in scrollToNow(proxy, animated: true) }
+                .onChange(of: scenePhase) { _, phase in if phase == .active { scrollToNow(proxy, animated: true) } }
+        }
+    }
+
+    /// Brings the current time to about a quarter of the way down the screen. Other days are left where they are.
+    private func scrollToNow(_ proxy: ScrollViewProxy, animated: Bool) {
+        guard store.dateKey == Date().dayKey, !isInteracting else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if animated && !reduceMotion { withAnimation(.easeInOut(duration: 0.35)) { proxy.scrollTo(nowAnchorID, anchor: .top) } }
+            else { proxy.scrollTo(nowAnchorID, anchor: .top) }
+        }
+    }
+
+    private let nowAnchorID = "timeline-now"
+
+    /// An invisible mark 90 minutes before now (or at the first unfinished task, if that is earlier) for `scrollToNow`.
+    private var nowAnchor: some View {
+        let now = Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now)
+        let firstOpen = store.todayTasks.first { !$0.isDone && $0.end > now - 90 }?.start ?? now
+        let minute = max(0, min(now - 90, firstOpen - 30))
+        return VStack(spacing: 0) {
+            Color.clear.frame(height: y(for: minute))
+            Color.clear.frame(height: 1).id(nowAnchorID)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var scroller: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DWSpacing.md) {
-                header()
-                NextUpCard()
                 ZStack(alignment: .topLeading) {
                     grid
+                    nowAnchor
                     currentTimeIndicator
                     tasks
                     if let draft { draftBlock(draft).transition(reduceMotion ? .opacity : .scale(scale: 0.94, anchor: .top).combined(with: .opacity)) }
@@ -131,6 +165,15 @@ struct TimelineView<Header: View>: View {
         .background(DWColors.background(colorScheme).ignoresSafeArea())
         .scrollDisabled(isInteracting)
         .scrollIndicators(.hidden)
+        // The date, title and next-up card stay put; only the timeline scrolls under them.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: DWSpacing.sm) {
+                header()
+                NextUpCard()
+            }
+            .padding(.horizontal, DWSpacing.md).padding(.top, DWSpacing.xs).padding(.bottom, DWSpacing.sm)
+            .background(DWColors.background(colorScheme).ignoresSafeArea(edges: .top))
+        }
     }
 
     private var grid: some View {
