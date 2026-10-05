@@ -25,7 +25,13 @@ final class BackgroundVoiceCapture {
     func start() async {
         guard watcher == nil else { return }
         english = (TaskRepository.shared.flatMap { WidgetSnapshot.stored(in: $0.directory)?.language } ?? "zh") == "en"
-        activity = try? Activity.request(attributes: VoiceCaptureAttributes(), content: content(.init(phase: .listening, english: english)))
+        do {
+            activity = try Activity.request(attributes: VoiceCaptureAttributes(), content: content(.init(phase: .listening, english: english)))
+            VoiceCaptureLog.note("live activity started")
+        } catch {
+            VoiceCaptureLog.note("live activity failed: \(error) · enabled=\(ActivityAuthorizationInfo().areActivitiesEnabled)")
+        }
+        VoiceCaptureLog.note("app state=\(UIApplication.shared.applicationState.rawValue) speech=\(SFSpeechRecognizer.authorizationStatus().rawValue) mic=\(AVAudioApplication.shared.recordPermission == .granted)")
 
         // Permission sheets cannot be shown from the background, so both must already be granted.
         guard SFSpeechRecognizer.authorizationStatus() == .authorized, AVAudioApplication.shared.recordPermission == .granted else {
@@ -36,6 +42,7 @@ final class BackgroundVoiceCapture {
         guard dictation.isListening else {
             var reason = english ? "Could not start listening" : "没能开始听"
             if case .unavailable(let message) = dictation.state { reason = message }
+            VoiceCaptureLog.note("dictation did not start: \(reason)")
             await finish(with: .init(phase: .failed, title: reason, english: english), keepFor: 8)
             return
         }
@@ -71,6 +78,7 @@ final class BackgroundVoiceCapture {
     private func complete() async {
         watcher = nil
         let sentence = dictation.stop()
+        VoiceCaptureLog.note("heard: \(sentence.isEmpty ? "(nothing)" : sentence)")
         guard !sentence.isEmpty else {
             await finish(with: .init(phase: .failed, title: english ? "Nothing was heard" : "没有听到内容", english: english), keepFor: 4)
             return
@@ -92,6 +100,7 @@ final class BackgroundVoiceCapture {
         do {
             if case .added = outcome, draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
             let tasks = try repository.upsert(task)
+            VoiceCaptureLog.note("saved: \(task.title) \(task.date ?? "inbox") \(task.start.map(String.init) ?? "-")")
             await ReminderScheduler.reconcile(tasks: tasks, english: english)
             NotificationCenter.default.post(name: .dailyWidgetTasksChanged, object: nil)
             let summary = AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end, category: task.category, recurrence: task.recurrence, source: draft.source, wantsReminder: draft.wantsReminder), english: english)

@@ -96,7 +96,12 @@ struct TimelineView<Header: View>: View {
     @State private var isInteracting = false
     /// Where the hold began while a new block is being drawn.
     @State private var createAnchorY: CGFloat?
-    private let startHour = 0
+    /// Today starts at the present: earlier hours are folded into one strip until it is tapped.
+    @State private var showsPast = false
+    private var isToday: Bool { store.dateKey == Date().dayKey }
+    private var nowMinute: Int { Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now) }
+    /// First hour drawn. Today, folded: the hour that holds "half an hour ago". Otherwise midnight.
+    private var startHour: Int { isToday && !showsPast ? max(0, (nowMinute - 30) / 60) : 0 }
     private let endHour = 24
     private let hourHeight: CGFloat = 68
 
@@ -105,7 +110,8 @@ struct TimelineView<Header: View>: View {
             scroller
                 // Open on the present: today's page starts with the red line in view instead of at midnight.
                 .onAppear { scrollToNow(proxy, animated: false) }
-                .onChange(of: store.dateKey) { _, _ in scrollToNow(proxy, animated: true) }
+                .onChange(of: store.dateKey) { _, _ in showsPast = false; scrollToNow(proxy, animated: true) }
+                .onChange(of: showsPast) { _, _ in scrollToNow(proxy, animated: true) }
                 .onChange(of: scenePhase) { _, phase in if phase == .active { scrollToNow(proxy, animated: true) } }
         }
     }
@@ -123,9 +129,9 @@ struct TimelineView<Header: View>: View {
 
     /// An invisible mark 90 minutes before now (or at the first unfinished task, if that is earlier) for `scrollToNow`.
     private var nowAnchor: some View {
-        let now = Calendar.current.component(.hour, from: .now) * 60 + Calendar.current.component(.minute, from: .now)
+        let now = nowMinute
         let firstOpen = store.todayTasks.first { !$0.isDone && $0.end > now - 90 }?.start ?? now
-        let minute = max(0, min(now - 90, firstOpen - 30))
+        let minute = max(startHour * 60, min(now - 90, firstOpen - 30))
         return VStack(spacing: 0) {
             Color.clear.frame(height: y(for: minute))
             Color.clear.frame(height: 1).id(nowAnchorID)
@@ -136,7 +142,8 @@ struct TimelineView<Header: View>: View {
 
     private var scroller: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: DWSpacing.md) {
+            VStack(alignment: .leading, spacing: DWSpacing.sm) {
+                if isToday { pastStrip }
                 ZStack(alignment: .topLeading) {
                     grid
                     nowAnchor
@@ -176,6 +183,39 @@ struct TimelineView<Header: View>: View {
         }
     }
 
+    /// "Earlier today · 2 done · 1 not done": one row standing in for the hours already gone. Tap to unfold them.
+    private var pastStrip: some View {
+        let cutoff = (isToday ? max(0, (nowMinute - 30) / 60) : 0) * 60
+        let earlier = store.todayTasks.filter { $0.end <= cutoff }
+        let done = earlier.filter(\.isDone).count
+        let open = earlier.count - done
+        let english = store.language == "en"
+        var parts = [showsPast ? (english ? "Showing the whole day" : "已展开全天") : (english ? "Earlier today" : "今天已过")]
+        if earlier.isEmpty { if !showsPast { parts.append(english ? "nothing planned" : "没有安排") } }
+        else {
+            if done > 0 { parts.append(english ? "\(done) done" : "完成 \(done) 件") }
+            if open > 0 { parts.append(english ? "\(open) not done" : "未完成 \(open) 件") }
+        }
+        return Button {
+            if reduceMotion { showsPast.toggle() } else { withAnimation(.easeInOut(duration: 0.3)) { showsPast.toggle() } }
+        } label: {
+            HStack(spacing: DWSpacing.xs) {
+                Image(systemName: showsPast ? "chevron.up" : "chevron.down").font(.caption.weight(.bold)).foregroundStyle(DWColors.muted)
+                Text(parts.joined(separator: " · ")).font(DWFont.label).foregroundStyle(open > 0 && !showsPast ? DWColors.text : DWColors.muted)
+                Spacer(minLength: 0)
+                if !showsPast, cutoff > 0 { Text("00:00 – \(DWFormat.time(cutoff))").font(DWFont.caption).foregroundStyle(DWColors.muted) }
+            }
+            .padding(.horizontal, DWSpacing.md).frame(minHeight: 44)
+            .background(DWColors.surface(colorScheme), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous).stroke(DWColors.line.opacity(colorScheme == .dark ? 0.6 : 1)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(cutoff > 0 || showsPast ? 1 : 0)
+        .frame(height: cutoff > 0 || showsPast ? nil : 0)
+        .accessibilityHint(english ? "Shows or hides the hours that have passed" : "展开或收起已经过去的时间")
+    }
+
     private var grid: some View {
         VStack(spacing: 0) {
             ForEach(startHour...endHour, id: \.self) { hour in
@@ -188,8 +228,9 @@ struct TimelineView<Header: View>: View {
     }
 
     private var tasks: some View {
-        ForEach(store.todayTasks) { occurrence in
-            TimelineTaskCard(occurrence: occurrence, pixelsPerMinute: hourHeight / 60, isInteracting: $isInteracting, selectedTask: $selectedTask, showingEditor: $showingEditor)
+        // Tasks that ended before the first hour drawn are counted in the strip above instead.
+        ForEach(store.todayTasks.filter { $0.end > startHour * 60 }) { occurrence in
+            TimelineTaskCard(occurrence: occurrence, pixelsPerMinute: hourHeight / 60, originMinute: startHour * 60, isInteracting: $isInteracting, selectedTask: $selectedTask, showingEditor: $showingEditor)
         }
     }
 
@@ -264,6 +305,8 @@ private struct TimelineTaskCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let occurrence: ScheduledOccurrence
     let pixelsPerMinute: CGFloat
+    /// The minute drawn at the top of the timeline (not always midnight).
+    var originMinute = 0
     @Binding var isInteracting: Bool
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
@@ -310,7 +353,7 @@ private struct TimelineTaskCard: View {
         .shadow(color: .black.opacity(isActive ? 0.18 : 0), radius: isActive ? 12 : 0, y: isActive ? 6 : 0)
         .padding(.leading, 53).padding(.trailing, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .offset(y: CGFloat(liveStart) * pixelsPerMinute)
+        .offset(y: CGFloat(liveStart - originMinute) * pixelsPerMinute)
         .zIndex(isActive ? 10 : 0)
         .animation(reduceMotion ? nil : .interactiveSpring(response: 0.22, dampingFraction: 0.86), value: liveStart)
         .animation(reduceMotion ? nil : .interactiveSpring(response: 0.22, dampingFraction: 0.86), value: liveEnd)
