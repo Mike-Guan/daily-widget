@@ -5,7 +5,9 @@ import UIKit
 
 @MainActor
 final class PlannerStore: ObservableObject {
-    @Published private(set) var records: [PlannerTask] = []
+    @Published private(set) var records: [PlannerTask] = [] { didSet { syncReminders() } }
+    /// Task ids that should fire a local notification at their start time.
+    @Published private(set) var reminderIDs: Set<String> = ReminderPlan.wantedIDs()
     @Published var selectedDate = Date()
     @Published var language = "zh"
     @Published var theme = "system"
@@ -54,9 +56,24 @@ final class PlannerStore: ObservableObject {
     /// The task most recently added by voice or quick add, while its Undo banner is showing.
     @Published var recentlyAdded: PlannerTask?
 
+    func hasReminder(_ task: PlannerTask) -> Bool { reminderIDs.contains(task.id) }
+
+    func setReminder(_ wanted: Bool, for task: PlannerTask) {
+        ReminderPlan.setWanted(wanted, taskID: task.id)
+        syncReminders()
+    }
+
+    private func syncReminders() {
+        // Siri and the Action Button add ids from outside the app, so read the shared set again.
+        reminderIDs = ReminderPlan.wantedIDs()
+        let tasks = records, english = language == "en"
+        Task { await ReminderScheduler.reconcile(tasks: tasks, english: english) }
+    }
+
     func addFromQuickAdd(_ draft: TaskDraft) {
         var task = newTask()
         task.apply(draft)
+        if draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
         save(task)
         if let date = draft.date { selectedDate = .date(fromKey: date) }
         recentlyAdded = records.first { $0.id == task.id }

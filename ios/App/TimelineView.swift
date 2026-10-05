@@ -130,6 +130,7 @@ private struct TimelineTaskCard: View {
                 HStack(spacing: 4) {
                     Text(occurrence.isContinuation ? "– \(DWFormat.time(occurrence.end))" : DWFormat.time(occurrence.start))
                     if occurrence.spansNextDay { Image(systemName: "moon.stars").accessibilityLabel(store.language == "en" ? "Ends next day" : "次日结束") }
+                    if store.hasReminder(occurrence.task) { Image(systemName: "bell.fill").accessibilityLabel(store.language == "en" ? "Reminder on" : "到点提醒") }
                     if occurrence.isFocus { Image(systemName: "star.fill").accessibilityLabel(store.language == "en" ? "Top task" : "今日重点") }
                 }
                 .font(DWFont.caption).foregroundStyle(DWColors.muted)

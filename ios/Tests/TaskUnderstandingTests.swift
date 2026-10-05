@@ -47,14 +47,42 @@ final class TaskUnderstandingTests: XCTestCase {
     func testDayOrTimeTheUserNeverSaidIsIgnored() {
         let result = draft("和团队开会", ModelTaskOutput(title: "开会", dateText: "明天", timeText: "下午三点"))
         XCTAssertFalse(result.isScheduled)
-        XCTAssertEqual(result.notes, "")
     }
 
-    func testDayWithoutTimeGoesToInboxAndKeepsTheDay() {
-        let result = draft("帮我添加一个10月23日提醒我在华山医院公众号挂号", nil)
-        XCTAssertEqual(result, TaskDraft(title: "在华山医院公众号挂号", date: nil, start: nil, end: nil, notes: "2026-10-23", source: .rules))
-        let withModel = draft("帮我添加一个10月23日提醒我在华山医院公众号挂号", ModelTaskOutput(title: "华山医院公众号挂号", dateText: "10月23日", wantsReminder: true, category: "health", recurrence: "weekly"))
-        XCTAssertEqual(withModel, TaskDraft(title: "华山医院公众号挂号", date: nil, start: nil, end: nil, category: "health", recurrence: "none", notes: "2026-10-23", source: .model))
+    func testDayWithoutTimeLandsOnThatDayAtNineWithReminder() {
+        let rulesOnly = draft("帮我添加一个10月23日提醒我在华山医院公众号挂号", nil)
+        XCTAssertEqual(rulesOnly, TaskDraft(title: "在华山医院公众号挂号", date: "2026-10-23", start: 540, end: 570, source: .rules, wantsReminder: true, usesDefaultTime: true))
+        let withModel = draft("帮我添加一个10月23日提醒我在华山医院公众号挂号", ModelTaskOutput(title: "华山医院公众号挂号", dateText: "10月23日", wantsReminder: true, category: "health"))
+        XCTAssertEqual(withModel, TaskDraft(title: "华山医院公众号挂号", date: "2026-10-23", start: 540, end: 570, category: "health", source: .model, wantsReminder: true, usesDefaultTime: true))
+    }
+
+    func testNoDayAndNoTimeIsInboxWithoutReminder() {
+        let result = draft("提醒我买牛奶", ModelTaskOutput(title: "买牛奶", wantsReminder: true, recurrence: "weekly"))
+        XCTAssertEqual(result, TaskDraft(title: "买牛奶", date: nil, start: nil, end: nil, recurrence: "none", source: .model))
+    }
+
+    func testReminderOnlyWhenAsked() {
+        XCTAssertFalse(draft("明天下午三点牙医", nil).wantsReminder)
+        XCTAssertTrue(draft("明天下午三点提醒我看牙医", nil).wantsReminder)
+        XCTAssertTrue(draft("remind me tomorrow 3pm dentist", nil).wantsReminder)
+    }
+
+    func testReminderFireDate() {
+        var task = PlannerTask(id: "a", date: "2026-10-23", start: 540, end: 570, title: "挂号", createdAt: "", updatedAt: "", updatedBy: "t")
+        let expected = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 23, hour: 9))
+        XCTAssertEqual(ReminderPlan.fireDate(for: task), expected)
+        task.done = true
+        XCTAssertNil(ReminderPlan.fireDate(for: task))
+        task.done = false; task.date = nil; task.start = nil; task.end = nil
+        XCTAssertNil(ReminderPlan.fireDate(for: task))
+    }
+
+    func testReminderWantedSetRoundTrips() {
+        let defaults = UserDefaults(suiteName: "dw-tests-\(UUID().uuidString)")!
+        ReminderPlan.setWanted(true, taskID: "a", in: defaults)
+        ReminderPlan.setWanted(true, taskID: "b", in: defaults)
+        ReminderPlan.setWanted(false, taskID: "a", in: defaults)
+        XCTAssertEqual(ReminderPlan.wantedIDs(in: defaults), ["b"])
     }
 
     func testRecurrenceFromModel() {

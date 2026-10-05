@@ -77,7 +77,7 @@ enum QuickInputParser {
     }
 
     static func mentionsReminder(_ text: String) -> Bool {
-        firstMatch("提醒|remind", in: text) != nil
+        firstMatch("提醒|别忘|叫我|通知我|remind|don't let me forget", in: text) != nil
     }
 
     // MARK: Time

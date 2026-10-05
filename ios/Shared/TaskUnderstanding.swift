@@ -12,6 +12,10 @@ struct TaskDraft: Equatable {
     var recurrence: String = "none"
     var notes: String = ""
     var source: Source = .rules
+    /// The user asked to be reminded ("提醒我", "remind me").
+    var wantsReminder = false
+    /// A day was named without a time, so the default time of day was used.
+    var usesDefaultTime = false
 
     var isScheduled: Bool { date != nil && start != nil && end != nil }
 }
@@ -21,6 +25,32 @@ enum QuickAddPolicy {
     /// true: add as soon as the sentence is understood and offer Undo. false: always ask first.
     static let addsImmediately = true
     static let undoWindow: TimeInterval = 5
+    /// Where a task goes when a day was named but no time: 09:00.
+    static let defaultStartMinute = 9 * 60
+}
+
+/// When a task's reminder should fire. Reminders are local notifications on this iPhone; which
+/// tasks want one is kept in the App Group, not in the synced task file, so the data format the
+/// Mac reads does not change.
+enum ReminderPlan {
+    static let defaultsKey = "reminderTaskIDs"
+
+    static func fireDate(for task: PlannerTask) -> Date? {
+        guard !task.isDeleted, !task.done, let date = task.date, let start = task.start, let day = DateFormatter.dayKey.date(from: date) else { return nil }
+        return Calendar.current.date(byAdding: .minute, value: start, to: Calendar.current.startOfDay(for: day))
+    }
+
+    static var sharedDefaults: UserDefaults { UserDefaults(suiteName: WidgetSnapshot.appGroupID) ?? .standard }
+
+    static func wantedIDs(in defaults: UserDefaults = sharedDefaults) -> Set<String> {
+        Set(defaults.stringArray(forKey: defaultsKey) ?? [])
+    }
+
+    static func setWanted(_ wanted: Bool, taskID: String, in defaults: UserDefaults = sharedDefaults) {
+        var ids = wantedIDs(in: defaults)
+        if wanted { ids.insert(taskID) } else { ids.remove(taskID) }
+        defaults.set(ids.sorted(), forKey: defaultsKey)
+    }
 }
 
 /// Raw fields as a language model returned them. The model only points at the words for the day
@@ -65,13 +95,20 @@ enum TaskUnderstanding {
             }
         }
 
+        draft.wantsReminder = QuickInputParser.mentionsReminder(text) || (model?.wantsReminder ?? false)
         if draft.isScheduled {
             if let day { draft.date = day }
+        } else if let day {
+            // A day without a time lands on that day at the default time, where it is visible and can be dragged.
+            draft.date = day
+            draft.start = QuickAddPolicy.defaultStartMinute
+            draft.end = QuickAddPolicy.defaultStartMinute + 30
+            draft.usesDefaultTime = true
         } else {
-            // No time means Inbox. Keep the day that was named so it is not lost.
+            // Neither day nor time: Inbox.
             draft.date = nil; draft.start = nil; draft.end = nil
             draft.recurrence = "none"
-            if let day { draft.notes = day }
+            draft.wantsReminder = false
         }
         if usedModel { draft.source = .model }
         return draft

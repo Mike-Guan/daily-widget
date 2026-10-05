@@ -32,7 +32,9 @@ struct AddTaskIntent: AppIntent {
 
         var task = PlannerTask.empty(date: draft.date, start: draft.start, end: draft.end, deviceID: "siri")
         task.apply(draft)
-        try repository.upsert(task)
+        if draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
+        let tasks = try repository.upsert(task)
+        await ReminderScheduler.reconcile(tasks: tasks, english: english)
         return .result(dialog: IntentDialog(stringLiteral: summary.done)) { AddTaskConfirmationView(summary: summary, undoTaskID: task.id) }
     }
 }
@@ -92,13 +94,13 @@ struct AddTaskSummary {
         detail = [
             english ? draft.category.capitalized : categories[draft.category] ?? draft.category,
             recurrences[draft.recurrence],
+            draft.wantsReminder ? (english ? "Reminder on" : "到点提醒") : nil,
+            draft.usesDefaultTime ? (english ? "No time said, set to 09:00" : "没说时间，先放 09:00") : nil,
             draft.source == .model ? (english ? "Understood by on-device AI" : "由本机 AI 理解") : (english ? "Parsed by rules" : "按规则解析"),
         ].compactMap { $0 }.joined(separator: " · ")
         guard let date = draft.date, let start = draft.start, let end = draft.end else {
             isInbox = true
-            let keptDay = draft.notes.count == 10 ? DateFormatter.dayKey.date(from: draft.notes) : nil
-            let dayNote = keptDay.map { " · " + $0.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: english ? "en_US" : "zh_Hans_CN"))) } ?? ""
-            when = (english ? "Inbox · no time" : "收集箱 · 未定时间") + dayNote
+            when = english ? "Inbox · no time" : "收集箱 · 未定时间"
             return
         }
         isInbox = false
