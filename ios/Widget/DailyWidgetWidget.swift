@@ -402,12 +402,22 @@ struct QuickAddAccessoryWidget: Widget {
     }
 }
 
+@available(iOS 18.0, *)
+struct VoiceControlValue: ControlValueProvider {
+    var previewValue: Bool { false }
+    func currentValue() async throws -> Bool { VoiceCaptureStatus.isListening }
+}
+
 /// The same entry point as a control for the lock screen's bottom slots, Control Center and the Action Button.
 @available(iOS 18.0, *)
 struct QuickAddControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "com.guanshiyang.dailywidget.quickadd") {
-            ControlWidgetButton(action: RecordTaskIntent()) { Label("记一件事", systemImage: "mic.fill") }
+        StaticControlConfiguration(kind: VoiceCaptureStatus.controlKind, provider: VoiceControlValue()) { listening in
+            // A toggle: the first tap starts listening and the control lights up, the second tap ends it.
+            ControlWidgetToggle("记一件事", isOn: listening, action: ToggleVoiceCaptureIntent()) { on in
+                Label(on ? "正在听" : "记一件事", systemImage: on ? "waveform" : "mic.fill")
+            }
+            .tint(DWColors.accent)
         }
         .displayName("记一件事")
         .description("不打开 App，直接听你说。Listens without opening the app.")

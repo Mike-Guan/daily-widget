@@ -9,19 +9,53 @@ struct VoiceCaptureLiveActivity: Widget {
         ActivityConfiguration(for: VoiceCaptureAttributes.self) { context in
             VoiceCaptureStrip(state: context.state)
                 .padding(DWSpacing.md)
+                .widgetURL(URL(string: "dailywidget://today"))
                 .activityBackgroundTint(Color(.secondarySystemBackground))
                 .activitySystemActionForegroundColor(DWColors.accent)
         } dynamicIsland: { context in
-            DynamicIsland {
-                DynamicIslandExpandedRegion(.bottom) { VoiceCaptureStrip(state: context.state).padding(.horizontal, DWSpacing.xs).padding(.bottom, DWSpacing.xs) }
+            let copy = VoiceCaptureText(state: context.state)
+            return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    VoiceCaptureMark(state: context.state, size: 22).frame(width: 44, height: 44).background(DWColors.accentSoft, in: Circle()).padding(.leading, 4)
+                }
+                DynamicIslandExpandedRegion(.trailing) { VoiceCaptureAction(state: context.state).padding(.trailing, 4) }
+                DynamicIslandExpandedRegion(.center) {
+                    Text(copy.short).font(.caption.weight(.semibold)).foregroundStyle(DWColors.accent).lineLimit(1)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(copy.headline).font(.headline).foregroundStyle(.white).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(copy.caption).font(.caption).foregroundStyle(.white.opacity(0.7)).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, DWSpacing.xs).padding(.bottom, DWSpacing.xs)
+                }
             } compactLeading: {
                 VoiceCaptureMark(state: context.state, size: 18)
             } compactTrailing: {
-                Text(VoiceCaptureText(state: context.state).short).font(.caption2.weight(.semibold)).foregroundStyle(DWColors.accent).lineLimit(1)
+                if context.state.phase == .listening {
+                    Image(systemName: "waveform").font(.caption.weight(.semibold)).foregroundStyle(DWColors.accent).symbolEffect(.variableColor.iterative)
+                } else {
+                    Text(copy.short).font(.caption2.weight(.semibold)).foregroundStyle(DWColors.accent).lineLimit(1)
+                }
             } minimal: {
                 VoiceCaptureMark(state: context.state, size: 16)
             }
             .keylineTint(DWColors.accent)
+            .widgetURL(URL(string: "dailywidget://today"))
+        }
+    }
+}
+
+/// "Done" while listening, "Undo" after a task was added.
+private struct VoiceCaptureAction: View {
+    let state: VoiceCaptureAttributes.ContentState
+    var body: some View {
+        if state.phase == .listening {
+            Button(intent: FinishVoiceCaptureIntent()) { Text(state.english ? "Done" : "说完了").font(DWFont.label) }
+                .buttonStyle(.borderedProminent).tint(DWColors.accent)
+        } else if state.phase == .added, let taskID = state.taskID {
+            Button(intent: UndoAddTaskIntent(taskID: taskID)) { Text(state.english ? "Undo" : "撤销").font(DWFont.label) }
+                .buttonStyle(.bordered).tint(DWColors.accent)
         }
     }
 }
@@ -88,13 +122,7 @@ private struct VoiceCaptureStrip: View {
                 Text(copy.caption).font(DWFont.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
-            if state.phase == .listening {
-                Button(intent: FinishVoiceCaptureIntent()) { Text(state.english ? "Done" : "说完了").font(DWFont.label) }
-                    .buttonStyle(.borderedProminent).tint(DWColors.accent)
-            } else if state.phase == .added, let taskID = state.taskID {
-                Button(intent: UndoAddTaskIntent(taskID: taskID)) { Text(state.english ? "Undo" : "撤销").font(DWFont.label) }
-                    .buttonStyle(.bordered).tint(DWColors.accent)
-            }
+            VoiceCaptureAction(state: state)
         }
     }
 }

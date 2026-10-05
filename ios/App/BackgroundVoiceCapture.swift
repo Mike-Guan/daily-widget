@@ -3,6 +3,7 @@ import AVFoundation
 import Foundation
 import Speech
 import UIKit
+import WidgetKit
 
 /// Dictates one task while the app stays in the background. Started by `RecordTaskIntent` from a
 /// widget or the lock-screen control; progress and the result are shown in a Live Activity.
@@ -22,8 +23,9 @@ final class BackgroundVoiceCapture {
     private var watcher: Task<Void, Never>?
     private var english = false
 
+    /// Starts listening. While already listening, the same action ends it: tap once to start, again to stop.
     func start() async {
-        guard watcher == nil else { return }
+        guard watcher == nil else { await finishNow(); return }
         english = (TaskRepository.shared.flatMap { WidgetSnapshot.stored(in: $0.directory)?.language } ?? "zh") == "en"
         do {
             activity = try Activity.request(attributes: VoiceCaptureAttributes(), content: content(.init(phase: .listening, english: english)))
@@ -39,6 +41,7 @@ final class BackgroundVoiceCapture {
             return
         }
         await dictation.start(english: english)
+        setListening(dictation.isListening)
         guard dictation.isListening else {
             var reason = english ? "Could not start listening" : "没能开始听"
             if case .unavailable(let message) = dictation.state { reason = message }
@@ -75,9 +78,15 @@ final class BackgroundVoiceCapture {
         await complete()
     }
 
+    private func setListening(_ listening: Bool) {
+        VoiceCaptureStatus.isListening = listening
+        if #available(iOS 18.0, *) { ControlCenter.shared.reloadControls(ofKind: VoiceCaptureStatus.controlKind) }
+    }
+
     private func complete() async {
         watcher = nil
         let sentence = dictation.stop()
+        setListening(false)
         VoiceCaptureLog.note("heard: \(sentence.isEmpty ? "(nothing)" : sentence)")
         guard !sentence.isEmpty else {
             await finish(with: .init(phase: .failed, title: english ? "Nothing was heard" : "没有听到内容", english: english), keepFor: 4)
@@ -119,6 +128,7 @@ final class BackgroundVoiceCapture {
     private func finish(with state: VoiceCaptureAttributes.ContentState, keepFor seconds: TimeInterval) async {
         watcher = nil
         dictation.stop()
+        setListening(false)
         await activity?.end(content(state), dismissalPolicy: .after(.now + seconds))
         activity = nil
     }

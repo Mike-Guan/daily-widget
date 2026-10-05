@@ -38,6 +38,34 @@ struct RecordTaskIntent: AudioRecordingIntent, LiveActivityIntent {
     }
 }
 
+/// The Control Center / lock-screen control: the first tap starts listening, the second ends it.
+@available(iOS 18.0, *)
+struct ToggleVoiceCaptureIntent: SetValueIntent, AudioRecordingIntent, LiveActivityIntent {
+    static var title: LocalizedStringResource = "Listen for a task"
+    static var isDiscoverable = false
+    static var openAppWhenRun = false
+
+    @Parameter(title: "Listening") var value: Bool
+
+    func perform() async throws -> some IntentResult {
+        VoiceCaptureLog.note("control set to \(value ? "listen" : "stop")")
+        if value { await RecordTaskIntent.start?() } else { await FinishVoiceCaptureIntent.finish?() }
+        return .result()
+    }
+}
+
+/// Whether background voice capture is listening right now, shared so the control can show it.
+enum VoiceCaptureStatus {
+    static let controlKind = "com.guanshiyang.dailywidget.quickadd"
+    private static let key = "voiceCaptureListening"
+    private static var defaults: UserDefaults? { UserDefaults(suiteName: WidgetSnapshot.appGroupID) }
+
+    static var isListening: Bool {
+        get { defaults?.bool(forKey: key) ?? false }
+        set { defaults?.set(newValue, forKey: key) }
+    }
+}
+
 /// A short trail of what background voice capture did, kept in the App Group so the app's Settings
 /// can show it. Each line says which process wrote it.
 enum VoiceCaptureLog {
