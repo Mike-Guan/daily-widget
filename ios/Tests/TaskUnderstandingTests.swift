@@ -35,10 +35,13 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(result.source, .model)
     }
 
-    func testInventedTitleIsRejected() {
-        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).title, "有空买牛奶")
-        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).source, .rules)
+    func testModelTitleIsUsedAsGiven() {
+        // Mike's choice: trust the model's title, even when it rewords.
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "购买乳制品")).title, "购买乳制品")
         XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "买牛奶")).title, "买牛奶")
+        XCTAssertEqual(draft("有空买牛奶", ModelTaskOutput(title: "  ")).title, "有空买牛奶")
+        // Handing the whole sentence back is not a title; the rules' title stands.
+        XCTAssertEqual(draft("明天下午三点牙医。", ModelTaskOutput(title: "明天下午三点牙医")).title, "牙医")
     }
 
     func testInvalidModelFieldsFallBackOneByOne() {
@@ -173,6 +176,63 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(draft("明天上午9点到11点写方案", nil, guessCategory: true).category, "personal")
         // A valid category from the model wins over the keyword guess.
         XCTAssertEqual(draft("周五晚上和老王吃饭", ModelTaskOutput(title: "和老王吃饭", category: "home"), guessCategory: true).category, "home")
+    }
+
+    // MARK: Answers the bundled model really gave (recorded on a Mac)
+
+    func testLocalModelAnswersAreReadAndChecked() throws {
+        // Echoes the whole sentence as the title: the rules' cleaner title must win, the category is kept.
+        var output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"帮我预约10月23号提醒我我在华山医院公众号挂号","date":"10月23号","time":"","duration_minutes":0,"remind":true,"category":"health","repeat":"none"}"#))
+        var result = draft("帮我预约10月23号提醒我我在华山医院公众号挂号", output)
+        XCTAssertEqual(result, TaskDraft(title: "在华山医院公众号挂号", date: "2026-10-23", start: 540, end: 570, category: "health", source: .model, wantsReminder: true, usesDefaultTime: true))
+
+        // "7:30" was never said ("七点半" was), so the model's time is ignored and the rules' time stands.
+        output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"老王他们几个吃火锅","date":"周五晚上","time":"7:30","duration_minutes":0,"remind":false,"category":"social","repeat":"none"}"#))
+        result = draft("那个啥周五晚上七点半约了老王他们几个吃火锅别让我忘了", output)
+        XCTAssertEqual(result.title, "老王他们几个吃火锅")
+        XCTAssertEqual(result.date, "2026-10-09")
+        XCTAssertEqual(result.start, 19 * 60 + 30)
+        XCTAssertEqual(result.category, "social")
+
+        // A reworded title is taken as given.
+        output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"去看牙","date":"下周二","time":"下午两点左右","duration_minutes":0,"remind":false,"category":"health","repeat":"none"}"#))
+        result = draft("嗯我想想下周二下午吧两点左右去看一下牙", output)
+        XCTAssertEqual(result.date, "2026-10-13")
+        XCTAssertEqual(result.category, "health")
+        XCTAssertEqual(result.title, "去看牙")
+    }
+
+    func testComplainingSentence() throws {
+        let text = "太讨厌了明天又得和mentor开组会"
+        // Rules only take the day out. Feelings and filler are endless, so tidying the title is the model's job.
+        XCTAssertEqual(draft(text, nil), TaskDraft(title: "太讨厌了又得和mentor开组会", date: "2026-10-06", start: 540, end: 570, source: .rules, usesDefaultTime: true))
+        // The bundled model's real answer: its title is accepted, its invented reminder is not.
+        let output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"和mentor开组会","date":"明天","time":"","duration_minutes":0,"remind":true,"category":"social","repeat":"none"}"#))
+        let result = draft(text, output)
+        XCTAssertEqual(result.title, "和mentor开组会")
+        XCTAssertEqual(result.category, "social")
+        XCTAssertFalse(result.wantsReminder)
+        XCTAssertEqual(result.source, .model)
+    }
+
+    func testModelTitleThatDropsWordsFromTheMiddleIsAccepted() throws {
+        // Recorded on Mike's iPhone: the answer was right but the title was rejected for not being one contiguous piece.
+        let text = "哎已经很累了但是后天还得和组里开一个小时的组会在上午11:00"
+        let output = try XCTUnwrap(LocalModelPrompt.parse(#"{"title":"和组里开会","date":"后天","time":"上午11:00","duration_minutes":60,"remind":false,"category":"personal","repeat":"none"}"#))
+        XCTAssertEqual(draft(text, output), TaskDraft(title: "和组里开会", date: "2026-10-07", start: 660, end: 720, source: .model))
+        // Without a model the rules still get the day, the time and the length.
+        let rulesOnly = draft(text, nil)
+        XCTAssertEqual(rulesOnly.date, "2026-10-07")
+        XCTAssertEqual(rulesOnly.start, 660)
+        XCTAssertEqual(rulesOnly.end, 720)
+        XCTAssertEqual(rulesOnly.title, "哎已经很累了但是还得和组里开组会")
+    }
+
+    func testLocalModelGarbageIsIgnored() {
+        XCTAssertNil(LocalModelPrompt.parse("好的，我来帮你。"))
+        XCTAssertNil(LocalModelPrompt.parse("{not json}"))
+        let partial = LocalModelPrompt.parse(#"说明：{"title":"买牛奶","duration_minutes":"很久","remind":"yes"} 完成"#)
+        XCTAssertEqual(partial, ModelTaskOutput(title: "买牛奶"))
     }
 
     // MARK: Date phrases resolved in code
