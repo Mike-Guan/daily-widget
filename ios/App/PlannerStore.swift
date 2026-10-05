@@ -15,9 +15,7 @@ final class PlannerStore: ObservableObject {
 
     private let deviceID: String
     private let fileManager = FileManager.default
-    private let encoder: JSONEncoder
-    private let decoder = JSONDecoder()
-    private var appDirectory: URL
+    private let repository: TaskRepository
 
     init() {
         let defaults = UserDefaults.standard
@@ -25,13 +23,9 @@ final class PlannerStore: ObservableObject {
         defaults.set(deviceID, forKey: "deviceID")
         language = defaults.string(forKey: "language") ?? "zh"
         theme = defaults.string(forKey: "theme") ?? "system"
-        let groupDirectory = fileManager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.guanshiyang.dailywidget")
-        appDirectory = groupDirectory ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        load()
+        repository = TaskRepository.shared ?? TaskRepository(directory: fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0])
+        reload()
         restoreSyncFolder()
-        refreshWidgetSnapshot()
     }
 
     var dateKey: String { selectedDate.dayKey }
@@ -45,8 +39,7 @@ final class PlannerStore: ObservableObject {
     func save(_ input: PlannerTask) {
         var task = input
         task.touch(deviceID: deviceID)
-        if let index = records.firstIndex(where: { $0.id == task.id }) { records[index] = task } else { records.append(task) }
-        persist()
+        do { records = try repository.upsert(task, language: language) } catch { syncState = .failure(error.localizedDescription) }
     }
 
     func delete(_ task: PlannerTask) {
@@ -100,15 +93,18 @@ final class PlannerStore: ObservableObject {
         guard let folder = syncFolderURL else { syncState = .localOnly; return false }
         guard syncState != .syncing else { return true }
         syncState = .syncing
-        let localRecords = records
+        let repository = repository
+        let language = language
         Task { [weak self] in
             do {
                 let merged = try await Task.detached(priority: .userInitiated) {
-                    try Self.synchronize(localRecords: localRecords, folder: folder)
+                    // Merge against what is on disk now, and fold the result back in with another
+                    // read-modify-write, so a widget or Siri change made meanwhile is not lost.
+                    let synced = try Self.synchronize(localRecords: try repository.load(), folder: folder)
+                    return try repository.mutate(language: language) { $0 = TaskRepository.merge($0, with: synced) }
                 }.value
                 guard let self else { return }
                 records = merged
-                persist()
                 syncState = .synced(.now)
             } catch {
                 self?.syncState = .failure(error.localizedDescription)
@@ -122,21 +118,10 @@ final class PlannerStore: ObservableObject {
         if let date = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "date" })?.value { selectedDate = .date(fromKey: date) }
     }
 
-    private func load() {
-        let url = appDirectory.appendingPathComponent("tasks.json")
-        records = (try? Data(contentsOf: url)).flatMap { try? decoder.decode([PlannerTask].self, from: $0) } ?? []
-    }
-
-    private func persist() {
-        do { try fileManager.createDirectory(at: appDirectory, withIntermediateDirectories: true); try write(records, to: appDirectory.appendingPathComponent("tasks.json")); refreshWidgetSnapshot() } catch { syncState = .failure(error.localizedDescription) }
-    }
-
-    private func write<T: Encodable>(_ value: T, to url: URL) throws {
-        let data = try encoder.encode(value)
-        let temp = url.appendingPathExtension("tmp")
-        try data.write(to: temp, options: .atomic)
-        _ = try? fileManager.replaceItemAt(url, withItemAt: temp)
-        if !fileManager.fileExists(atPath: url.path) { try fileManager.moveItem(at: temp, to: url) }
+    /// Picks up changes other processes (widget, Siri) wrote while the app was not looking.
+    func reload() {
+        do { records = try repository.load(); repository.refreshSnapshot(tasks: records, language: language) }
+        catch { syncState = .failure(error.localizedDescription) }
     }
 
     private func restoreSyncFolder() {
@@ -145,9 +130,7 @@ final class PlannerStore: ObservableObject {
         syncFolderURL = try? URL(resolvingBookmarkData: bookmark, options: .withoutUI, relativeTo: nil, bookmarkDataIsStale: &stale)
     }
 
-    private func refreshWidgetSnapshot() {
-        if WidgetSnapshot.write(tasks: records, language: language) { WidgetCenter.shared.reloadAllTimelines() }
-    }
+    private func refreshWidgetSnapshot() { repository.refreshSnapshot(tasks: records, language: language) }
 
     private nonisolated static func synchronize(localRecords: [PlannerTask], folder: URL) throws -> [PlannerTask] {
         let access = folder.startAccessingSecurityScopedResource()
@@ -175,14 +158,7 @@ final class PlannerStore: ObservableObject {
                 guard let data = try? Data(contentsOf: url) else { return nil }
                 return try? decoder.decode(PlannerTask.self, from: data)
             }
-        var merged = Dictionary(uniqueKeysWithValues: localRecords.map { ($0.id, $0) })
-        let formatter = ISO8601DateFormatter()
-        for incoming in remote {
-            let incomingDate = formatter.date(from: incoming.updatedAt) ?? .distantPast
-            let localDate = merged[incoming.id].flatMap { formatter.date(from: $0.updatedAt) } ?? .distantPast
-            if merged[incoming.id] == nil || incomingDate > localDate { merged[incoming.id] = incoming }
-        }
-        let records = Array(merged.values)
+        let records = TaskRepository.merge(localRecords, with: remote)
         for task in records {
             let destination = tasksURL.appendingPathComponent("\(task.id).json")
             let data = try encoder.encode(task)
