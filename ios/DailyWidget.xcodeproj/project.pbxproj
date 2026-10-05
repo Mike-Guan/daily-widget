@@ -39,6 +39,8 @@
 		A10000000000000000000030 /* SpeechDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* SpeechDictation.swift */; };
 		A10000000000000000000031 /* TaskUnderstandingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* TaskUnderstandingTests.swift */; };
 		A10000000000000000000032 /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* ReminderScheduler.swift */; };
+		A10000000000000000000033 /* OpenQuickAddIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* OpenQuickAddIntent.swift */; };
+		A10000000000000000000034 /* OpenQuickAddIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* OpenQuickAddIntent.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -97,6 +99,7 @@
 		A20000000000000000000031 /* SpeechDictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechDictation.swift; sourceTree = "<group>"; };
 		A20000000000000000000032 /* TaskUnderstandingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskUnderstandingTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000033 /* ReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderScheduler.swift; sourceTree = "<group>"; };
+		A20000000000000000000034 /* OpenQuickAddIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenQuickAddIntent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXVariantGroup section */
@@ -185,6 +188,7 @@
 				A20000000000000000000016 /* TaskRepository.swift */,
 				A20000000000000000000020 /* QuickInputParser.swift */,
 				A20000000000000000000029 /* TaskUnderstanding.swift */,
+				A20000000000000000000034 /* OpenQuickAddIntent.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -340,6 +344,7 @@
 				A10000000000000000000008 /* PlannerTask.swift in Sources */,
 				A10000000000000000000009 /* WidgetSnapshot.swift in Sources */,
 				A10000000000000000000015 /* TaskRepository.swift in Sources */,
+				A10000000000000000000034 /* OpenQuickAddIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -361,6 +366,7 @@
 				A10000000000000000000029 /* TaskInterpreter.swift in Sources */,
 				A10000000000000000000030 /* SpeechDictation.swift in Sources */,
 				A10000000000000000000032 /* ReminderScheduler.swift in Sources */,
+				A10000000000000000000033 /* OpenQuickAddIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
