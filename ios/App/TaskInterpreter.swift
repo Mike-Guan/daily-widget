@@ -23,7 +23,7 @@ enum TaskInterpreter {
             case .available:
                 return english ? "On-device AI is on." : "正在使用本机 AI 理解。"
             case .unavailable(.appleIntelligenceNotEnabled):
-                return english ? "Apple Intelligence is off, so rules are used. Turn it on in Settings › Apple Intelligence & Siri." : "Apple 智能未开启，目前用规则解析。可在 设置 › Apple 智能与 Siri 中开启。"
+                return english ? "Apple Intelligence is off, so rules are used. An app cannot turn it on or ask for it: open the Settings app, go back to the top level, open Apple Intelligence & Siri, turn on Apple Intelligence, and come back once the model has downloaded." : "Apple 智能未开启，目前用规则解析。App 不能替你开启，也不会弹窗：请打开系统“设置”，回到最上层，进入“Apple 智能与 Siri”，打开“Apple 智能”，等模型下载完成后回来。"
             case .unavailable(.modelNotReady):
                 return english ? "The on-device model is still downloading; rules are used for now." : "本机模型还在下载，暂时用规则解析。"
             case .unavailable(.deviceNotEligible):
@@ -34,6 +34,19 @@ enum TaskInterpreter {
         }
         #endif
         return english ? "On-device AI needs iOS 26; rules are used." : "本机 AI 需要 iOS 26，目前用规则解析。"
+    }
+
+    /// True when the model exists on this phone but the user has to turn Apple Intelligence on (or wait for the download).
+    static var needsUserSetup: Bool {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .unavailable(.appleIntelligenceNotEnabled), .unavailable(.modelNotReady): return true
+            default: return false
+            }
+        }
+        #endif
+        return false
     }
 
     /// Loads the model ahead of the first request so the user does not wait for it.

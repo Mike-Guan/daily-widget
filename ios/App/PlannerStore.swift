@@ -55,8 +55,13 @@ final class PlannerStore: ObservableObject {
 
     /// The task most recently added by voice or quick add, while its Undo banner is showing.
     @Published var recentlyAdded: PlannerTask?
+    /// Whether the on-device model contributed to that task, shown on the banner.
+    @Published private(set) var recentlyAddedByModel = false
 
     func hasReminder(_ task: PlannerTask) -> Bool { reminderIDs.contains(task.id) }
+
+    /// False for a task that is still only a draft in an editor.
+    func contains(_ task: PlannerTask) -> Bool { records.contains { $0.id == task.id && !$0.isDeleted } }
 
     func setReminder(_ wanted: Bool, for task: PlannerTask) {
         ReminderPlan.setWanted(wanted, taskID: task.id)
@@ -70,12 +75,13 @@ final class PlannerStore: ObservableObject {
         Task { await ReminderScheduler.reconcile(tasks: tasks, english: english) }
     }
 
-    func addFromQuickAdd(_ draft: TaskDraft) {
+    func addFromQuickAdd(_ draft: TaskDraft, jumpToDate: Bool = true) {
         var task = newTask()
         task.apply(draft)
         if draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
         save(task)
-        if let date = draft.date { selectedDate = .date(fromKey: date) }
+        if jumpToDate, let date = draft.date { selectedDate = .date(fromKey: date) }
+        recentlyAddedByModel = draft.source == .model
         recentlyAdded = records.first { $0.id == task.id }
     }
 
