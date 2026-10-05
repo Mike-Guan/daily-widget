@@ -35,7 +35,7 @@ struct ContentView: View {
             page(.topThree) { TopThreePage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
             page(.review) { DailyReviewPage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { addedBanner; bottomBar } }
+        .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { addedBanner; movedBanner; bottomBar } }
         .tint(DWColors.accent)
         .preferredColorScheme(colorScheme)
         // Presented by item, not by flag: with a flag the sheet's content could be built from the
@@ -149,6 +149,31 @@ struct ContentView: View {
             .task(id: task.id) {
                 try? await Task.sleep(for: .seconds(QuickAddPolicy.undoWindow))
                 if !Task.isCancelled, store.recentlyAdded?.id == task.id { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.recentlyAdded = nil } }
+            }
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    @ViewBuilder private var movedBanner: some View {
+        if let change = store.recentlyMoved {
+            let task = change.after
+            HStack(spacing: DWSpacing.sm) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(text("Moved to", "已改到") + " " + DWFormat.time(task.start ?? 0) + "–" + DWFormat.time(task.end ?? 0)).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
+                    Text(task.title.isEmpty ? text("Untitled task", "未命名任务") : task.title).font(DWFont.caption).foregroundStyle(DWColors.muted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Button { store.undoRecentlyMoved() } label: { Text(text("Undo", "撤销")).font(DWFont.label).frame(minWidth: 44, minHeight: 44) }
+            }
+            .padding(.horizontal, DWSpacing.md).padding(.vertical, DWSpacing.xxs)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous).stroke(DWColors.line.opacity(0.6)))
+            .shadow(color: .black.opacity(0.08), radius: 16, y: 6)
+            .padding(.horizontal, DWSpacing.md)
+            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+            .task(id: task.updatedAt) {
+                try? await Task.sleep(for: .seconds(QuickAddPolicy.undoWindow))
+                if !Task.isCancelled, store.recentlyMoved?.after.updatedAt == task.updatedAt { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { store.recentlyMoved = nil } }
             }
             .accessibilityElement(children: .contain)
         }

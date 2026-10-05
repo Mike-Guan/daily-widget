@@ -139,3 +139,38 @@ extension PlannerTask {
         self.deletedAt = try values.decodeIfPresent(String.self, forKey: .deletedAt)
     }
 }
+
+/// Start and end, in minutes from midnight, while a block is dragged on the timeline. Everything
+/// snaps to 15 minutes.
+enum TimeDrag {
+    static let step = 15
+    /// How long a block made by holding empty space starts out.
+    static let newLength = 30
+    static let dayEnd = 24 * 60
+
+    static func snap(_ minutes: Double) -> Int { Int((minutes / Double(step)).rounded()) * step }
+
+    /// A new block that starts where the hold began and stretches to the finger. Dragging above
+    /// the start moves the start up and keeps the first 30 minutes.
+    static func create(anchor: Int, finger: Double) -> (start: Int, end: Int) {
+        let anchor = min(max(0, anchor), dayEnd - newLength)
+        let minute = min(max(0, snap(finger)), dayEnd)
+        if minute < anchor { return (minute, anchor + newLength) }
+        return (anchor, max(anchor + newLength, minute))
+    }
+
+    /// The whole block shifted by `delta` minutes, keeping its length and staying inside the day.
+    static func move(start: Int, end: Int, by delta: Double) -> (start: Int, end: Int) {
+        let length = end - start
+        // A block that already runs past midnight may only move earlier.
+        let latest = max(dayEnd - length, min(start, dayEnd - step))
+        let moved = min(max(0, start + snap(delta)), latest)
+        return (moved, moved + length)
+    }
+
+    /// One edge moved by `delta` minutes, never shorter than 15 minutes.
+    static func resize(start: Int, end: Int, top: Bool, by delta: Double) -> (start: Int, end: Int) {
+        if top { return (min(max(0, start + snap(delta)), end - step), end) }
+        return (start, min(max(start + step, end + snap(delta)), max(end, dayEnd)))
+    }
+}

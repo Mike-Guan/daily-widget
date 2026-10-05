@@ -86,3 +86,41 @@ final class TaskRepositoryTests: XCTestCase {
         XCTAssertEqual(reversed.first(where: { $0.id == "a" })?.title, "new")
     }
 }
+
+final class TimeDragTests: XCTestCase {
+    func testCreateStartsWithThirtyMinutesAndStretchesDown() {
+        XCTAssertTrue(TimeDrag.create(anchor: 600, finger: 600) == (600, 630))
+        XCTAssertTrue(TimeDrag.create(anchor: 600, finger: 688) == (600, 690))
+    }
+
+    func testCreateAboveTheAnchorMovesTheStartUp() {
+        XCTAssertTrue(TimeDrag.create(anchor: 600, finger: 541) == (540, 630))
+    }
+
+    func testCreateStaysInsideTheDay() {
+        XCTAssertTrue(TimeDrag.create(anchor: 1435, finger: 2000) == (1410, 1440))
+        XCTAssertTrue(TimeDrag.create(anchor: 10, finger: -50) == (0, 40))
+    }
+
+    func testMoveSnapsToFifteenMinutesAndKeepsLength() {
+        XCTAssertTrue(TimeDrag.move(start: 660, end: 720, by: 22) == (675, 735))
+        XCTAssertTrue(TimeDrag.move(start: 660, end: 720, by: -6) == (660, 720))
+    }
+
+    func testMoveStopsAtTheEdgesOfTheDay() {
+        XCTAssertTrue(TimeDrag.move(start: 60, end: 120, by: -300) == (0, 60))
+        XCTAssertTrue(TimeDrag.move(start: 1320, end: 1380, by: 300) == (1380, 1440))
+    }
+
+    func testMovePastMidnightOnlyGoesEarlier() {
+        XCTAssertTrue(TimeDrag.move(start: 1380, end: 1500, by: 60) == (1380, 1500))
+        XCTAssertTrue(TimeDrag.move(start: 1380, end: 1500, by: -60) == (1320, 1440))
+    }
+
+    func testResizeKeepsAtLeastFifteenMinutes() {
+        XCTAssertTrue(TimeDrag.resize(start: 600, end: 660, top: true, by: 120) == (645, 660))
+        XCTAssertTrue(TimeDrag.resize(start: 600, end: 660, top: false, by: -120) == (600, 615))
+        XCTAssertTrue(TimeDrag.resize(start: 600, end: 660, top: false, by: 44) == (600, 705))
+        XCTAssertTrue(TimeDrag.resize(start: 600, end: 660, top: true, by: -30) == (570, 660))
+    }
+}

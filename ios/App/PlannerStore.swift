@@ -57,6 +57,13 @@ final class PlannerStore: ObservableObject {
     @Published var recentlyAdded: PlannerTask?
     /// Whether the on-device model contributed to that task, shown on the banner.
     @Published private(set) var recentlyAddedEngine = "rules"
+    /// The task whose time was just changed, while its Undo banner is showing.
+    @Published var recentlyMoved: TimeChange?
+
+    struct TimeChange: Equatable {
+        let before: PlannerTask
+        let after: PlannerTask
+    }
 
     func hasReminder(_ task: PlannerTask) -> Bool { reminderIDs.contains(task.id) }
 
@@ -82,6 +89,7 @@ final class PlannerStore: ObservableObject {
         save(task)
         if jumpToDate, let date = draft.date { selectedDate = .date(fromKey: date) }
         recentlyAddedEngine = TaskInterpreter.lastEngine
+        recentlyMoved = nil
         recentlyAdded = records.first { $0.id == task.id }
     }
 
@@ -106,10 +114,20 @@ final class PlannerStore: ObservableObject {
         save(changed)
     }
 
-    func move(_ occurrence: ScheduledOccurrence, start: Int, end: Int) {
-        guard var changed = records.first(where: { $0.id == occurrence.task.id }) else { return }
+    func move(_ occurrence: ScheduledOccurrence, start: Int, end: Int, offersUndo: Bool = false) {
+        guard var changed = records.first(where: { $0.id == occurrence.task.id }), changed.start != start || changed.end != end else { return }
+        let before = changed
         changed.start = start; changed.end = end
         save(changed)
+        if offersUndo { recentlyAdded = nil; recentlyMoved = TimeChange(before: before, after: records.first { $0.id == changed.id } ?? changed) }
+    }
+
+    /// Puts the task from the Undo banner back where it was.
+    func undoRecentlyMoved() {
+        guard let change = recentlyMoved, var task = records.first(where: { $0.id == change.before.id }) else { return }
+        recentlyMoved = nil
+        task.date = change.before.date; task.start = change.before.start; task.end = change.before.end
+        save(task)
     }
 
     func moveToInbox(_ task: PlannerTask) {
