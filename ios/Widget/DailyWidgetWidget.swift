@@ -214,13 +214,17 @@ struct DailyWidgetWidgetView: View {
         .padding(.vertical, 6)
     }
 
-    private var voiceButton: some View {
-        Link(destination: URL(string: "dailywidget://quickadd")!) {
-            MicGlyph().fill(DWColors.accent).frame(width: 17, height: 17)
-                .frame(width: 34, height: 34)
-                .background(DWColors.accentSoft, in: Circle())
+    /// On iOS 18 and later the microphone listens in the background and shows a Live Activity;
+    /// before that it opens the app's voice sheet.
+    @ViewBuilder private var voiceButton: some View {
+        let mark = MicGlyph().fill(DWColors.accent).frame(width: 17, height: 17)
+            .frame(width: 34, height: 34)
+            .background(DWColors.accentSoft, in: Circle())
+        if #available(iOS 18.0, *) {
+            Button(intent: RecordTaskIntent()) { mark }.buttonStyle(.plain).accessibilityLabel(text("Add a task by voice", "语音记一件事"))
+        } else {
+            Link(destination: URL(string: "dailywidget://quickadd")!) { mark }.accessibilityLabel(text("Add a task by voice", "语音记一件事"))
         }
-        .accessibilityLabel(text("Add a task by voice", "语音记一件事"))
     }
 
     /// The task shown in the big card: the one running now, otherwise the earliest one still to come.
@@ -387,12 +391,19 @@ struct MicGlyph: Shape {
 struct QuickAddAccessoryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "DailyWidgetQuickAdd", provider: DailyWidgetProvider()) { entry in
-            ZStack {
+            let circle = ZStack {
                 AccessoryWidgetBackground()
                 MicGlyph().fill(.primary).frame(width: 24, height: 24).widgetAccentable()
             }
+            Group {
+                if #available(iOS 18.0, *) {
+                    // Listens in the background instead of opening the app.
+                    Button(intent: RecordTaskIntent()) { circle }.buttonStyle(.plain)
+                } else {
+                    circle.widgetURL(URL(string: "dailywidget://quickadd"))
+                }
+            }
             .containerBackground(.clear, for: .widget)
-            .widgetURL(URL(string: "dailywidget://quickadd"))
             .accessibilityLabel(entry.snapshot.language == "en" ? "Add a task by voice" : "语音记一件事")
         }
         .configurationDisplayName("语音添加 · Voice add")
@@ -406,10 +417,10 @@ struct QuickAddAccessoryWidget: Widget {
 struct QuickAddControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.guanshiyang.dailywidget.quickadd") {
-            ControlWidgetButton(action: OpenQuickAddIntent()) { Label("记一件事", systemImage: "mic.fill") }
+            ControlWidgetButton(action: RecordTaskIntent()) { Label("记一件事", systemImage: "mic.fill") }
         }
         .displayName("记一件事")
-        .description("打开 Daily Widget 并开始听。Opens Daily Widget and starts listening.")
+        .description("不打开 App，直接听你说。Listens without opening the app.")
     }
 }
 
@@ -419,5 +430,6 @@ struct DailyWidgetBundle: WidgetBundle {
         DailyWidgetWidget()
         QuickAddAccessoryWidget()
         if #available(iOS 18.0, *) { QuickAddControl() }
+        VoiceCaptureLiveActivity()
     }
 }
