@@ -1,30 +1,35 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-private enum AppTab: Hashable { case today, inbox, topThree, review }
+private enum AppTab: Hashable, CaseIterable { case today, inbox, topThree, review }
 
 struct ContentView: View {
     @EnvironmentObject private var store: PlannerStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTask: PlannerTask?
     @State private var showingEditor = false
     @State private var showingQuickCreate = false
     @State private var showingSettings = false
+    @State private var showingQuickAdd = false
     @State private var pickingSyncFolder = false
     @State private var tab: AppTab = .today
     @State private var showSyncFolderPrompt = false
     @State private var showingCalendar = false
 
     var body: some View {
-        TabView(selection: $tab) {
-            todayPage.tabItem { Label(text("Today", "今天"), systemImage: "calendar") }.tag(AppTab.today)
-            InboxPage(selectedTask: $selectedTask, showingEditor: $showingEditor).tabItem { Label(text("Inbox", "收集箱"), systemImage: "tray") }.badge(store.inbox.count).tag(AppTab.inbox)
-            TopThreePage(selectedTask: $selectedTask, showingEditor: $showingEditor).tabItem { Label(text("Top 3", "今日重点"), systemImage: "sparkles") }.tag(AppTab.topThree)
-            DailyReviewPage(selectedTask: $selectedTask, showingEditor: $showingEditor).tabItem { Label(text("Review", "日末回顾"), systemImage: "arrow.counterclockwise") }.tag(AppTab.review)
+        ZStack {
+            page(.today) { todayPage }
+            page(.inbox) { InboxPage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
+            page(.topThree) { TopThreePage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
+            page(.review) { DailyReviewPage(selectedTask: $selectedTask, showingEditor: $showingEditor) }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .tint(DWColors.accent)
         .preferredColorScheme(colorScheme)
         .sheet(isPresented: $showingEditor) { if let task = selectedTask { TaskEditor(task: task) } }
         .sheet(isPresented: $showingQuickCreate) { if let task = selectedTask { QuickCreateSheet(task: task, selectedTask: $selectedTask, showingEditor: $showingEditor) } }
         .sheet(isPresented: $showingSettings) { SettingsView() }
+        .sheet(isPresented: $showingQuickAdd) { QuickAddSheet() }
         .fileImporter(isPresented: $pickingSyncFolder, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first { store.setSyncFolder(url) }
         }
@@ -45,81 +50,263 @@ struct ContentView: View {
         }
     }
 
+    /// Pages stay alive while hidden so scroll position survives a tab switch.
+    private func page<Content: View>(_ value: AppTab, @ViewBuilder content: () -> Content) -> some View {
+        content().opacity(tab == value ? 1 : 0).allowsHitTesting(tab == value).accessibilityHidden(tab != value)
+    }
+
+    // MARK: Today
+
     private var todayPage: some View {
-        NavigationStack {
-            TimelineView(selectedTask: $selectedTask, showingEditor: $showingEditor, showingQuickCreate: $showingQuickCreate)
-                .tint(.indigo)
-                .navigationTitle(selectedDateTitle)
-                .safeAreaInset(edge: .top, spacing: 0) { syncStatusBanner }
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { Button { showingCalendar = true } label: { Image(systemName: "calendar") }.accessibilityLabel(text("Choose date", "选择日期")) }
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button { store.setLanguage(store.language == "en" ? "zh" : "en") } label: { Text(store.language == "en" ? "中" : "EN").font(.caption.weight(.bold)) }.accessibilityLabel(text("Switch language", "切换语言"))
-                        Button { store.setTheme(store.theme == "system" ? "light" : store.theme == "light" ? "dark" : "system") } label: { Image(systemName: store.theme == "dark" ? "moon.fill" : store.theme == "light" ? "sun.max.fill" : "circle.lefthalf.filled") }.accessibilityLabel(text("Change theme", "切换主题"))
-                        Button { if !store.syncNow() { showSyncFolderPrompt = true } } label: {
-                            if isSyncing { ProgressView().controlSize(.small) }
-                            else { Image(systemName: store.syncFolderURL == nil ? "arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath.circle.fill").foregroundStyle(store.syncFolderURL == nil ? Color.secondary : Color.green) }
-                        }
-                        .disabled(isSyncing)
-                        .accessibilityLabel(text("Sync", "同步"))
-                    }
-                    ToolbarItem(placement: .topBarTrailing) { Menu { Button { store.selectedDate = .now } label: { Label(text("Today", "今天"), systemImage: "calendar") }; Button { showingSettings = true } label: { Label(text("Settings", "设置"), systemImage: "gearshape") } } label: { Image(systemName: "ellipsis.circle") } }
-                }
+        TimelineView(selectedTask: $selectedTask, showingEditor: $showingEditor, showingQuickCreate: $showingQuickCreate) {
+            VStack(alignment: .leading, spacing: DWSpacing.xs) {
+                PageHeader(eyebrow: dateLine, title: selectedDateTitle) { todayMenu }
+                syncStatusBanner
+            }
         }
     }
 
+    private var todayMenu: some View {
+        Menu {
+            Button { showingCalendar = true } label: { Label(text("Choose date", "选择日期"), systemImage: "calendar") }
+            if store.dateKey != Date().dayKey { Button { store.selectedDate = .now } label: { Label(text("Back to today", "回到今天"), systemImage: "arrow.uturn.backward") } }
+            Divider()
+            Button { if !store.syncNow() { showSyncFolderPrompt = true } } label: { Label(text("Sync now", "立即同步"), systemImage: "arrow.triangle.2.circlepath") }.disabled(isSyncing)
+            Button { store.setLanguage(store.language == "en" ? "zh" : "en") } label: { Label(store.language == "en" ? "切换到中文" : "Switch to English", systemImage: "character.bubble") }
+            Menu {
+                Picker(text("Theme", "主题"), selection: Binding(get: { store.theme }, set: store.setTheme)) {
+                    Label(text("System", "跟随系统"), systemImage: "circle.lefthalf.filled").tag("system")
+                    Label(text("Light", "浅色"), systemImage: "sun.max").tag("light")
+                    Label(text("Dark", "深色"), systemImage: "moon.stars").tag("dark")
+                }
+            } label: { Label(text("Theme", "主题"), systemImage: "circle.lefthalf.filled") }
+            Divider()
+            Button { showingSettings = true } label: { Label(text("Settings", "设置"), systemImage: "gearshape") }
+        } label: {
+            Image(systemName: "ellipsis.circle").font(.title2).foregroundStyle(DWColors.accent).frame(width: 44, height: 44).contentShape(Rectangle())
+        }
+        .accessibilityLabel(text("More", "更多"))
+    }
+
     private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
+    private var locale: Locale { Locale(identifier: store.language == "en" ? "en_US" : "zh_Hans_CN") }
     private var colorScheme: ColorScheme? { store.theme == "system" ? nil : (store.theme == "dark" ? .dark : .light) }
-    private var selectedDateTitle: String { store.dateKey == Date().dayKey ? text("Today", "今天") : store.selectedDate.formatted(.dateTime.month(.abbreviated).day().weekday(.wide)) }
+    private var isToday: Bool { store.dateKey == Date().dayKey }
+    private var selectedDateTitle: String { isToday ? text("Today", "今天") : store.selectedDate.formatted(.dateTime.month(.abbreviated).day().locale(locale)) }
+    private var dateLine: String {
+        isToday ? store.selectedDate.formatted(.dateTime.month().day().weekday(.wide).locale(locale)) : store.selectedDate.formatted(.dateTime.year().weekday(.wide).locale(locale))
+    }
     private var isSyncing: Bool { store.syncState == .syncing }
 
     @ViewBuilder private var syncStatusBanner: some View {
         switch store.syncState {
         case .syncing:
-            Label { Text(text("Syncing…", "正在同步…")) } icon: { ProgressView().controlSize(.small) }
-                .foregroundStyle(.secondary)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(.thinMaterial, in: Capsule())
-                .padding(.vertical, 6)
-        case .synced(let date):
-            Label(text("Synced " + date.formatted(date: .omitted, time: .shortened), "已同步 " + date.formatted(date: .omitted, time: .shortened)), systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.caption.weight(.semibold))
-                .padding(.vertical, 6)
+            Label { Text(text("Syncing…", "正在同步…")) } icon: { ProgressView().controlSize(.mini) }.font(DWFont.caption).foregroundStyle(DWColors.muted)
         case .failure(let message):
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-                .font(.caption)
-                .lineLimit(2)
-                .padding(.horizontal, 16).padding(.vertical, 6)
-        case .localOnly:
+            Label(message, systemImage: "exclamationmark.triangle.fill").font(DWFont.caption).foregroundStyle(DWColors.danger).lineLimit(2)
+        case .synced, .localOnly:
             EmptyView()
         }
     }
+
+    // MARK: Bottom bar
+
+    private var bottomBar: some View {
+        HStack(spacing: DWSpacing.sm) {
+            HStack(spacing: 0) {
+                tabButton(.today, text("Today", "今天"), "calendar")
+                tabButton(.inbox, text("Inbox", "收集箱"), "tray", badge: store.inbox.count)
+                tabButton(.topThree, text("Focus", "重点"), "star")
+                tabButton(.review, text("Review", "回顾"), "moon.stars")
+            }
+            .padding(DWSpacing.xxs)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().stroke(DWColors.line.opacity(0.6)))
+            .shadow(color: .black.opacity(0.08), radius: 16, y: 6)
+
+            Button { showingQuickAdd = true } label: {
+                Image(systemName: "mic.fill").font(.title3.weight(.semibold)).foregroundStyle(DWColors.onAccent).frame(width: 56, height: 56).background(DWColors.accent, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .shadow(color: DWColors.accent.opacity(0.35), radius: 12, y: 6)
+            .accessibilityLabel(text("Quick add", "快速添加"))
+            .accessibilityHint(text("Type or dictate a task", "输入或口述一条任务"))
+        }
+        .padding(.horizontal, DWSpacing.md)
+        .padding(.top, DWSpacing.xs)
+        .padding(.bottom, DWSpacing.xxs)
+    }
+
+    private func tabButton(_ value: AppTab, _ title: String, _ symbol: String, badge: Int = 0) -> some View {
+        let selected = tab == value
+        return Button {
+            if reduceMotion { tab = value } else { withAnimation(.easeOut(duration: 0.18)) { tab = value } }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: selected && symbol != "calendar" ? "\(symbol).fill" : symbol).font(.body.weight(.semibold)).frame(height: 22)
+                    .overlay(alignment: .topTrailing) {
+                        if badge > 0 { Text("\(min(badge, 99))").font(.system(size: 10, weight: .bold)).monospacedDigit().foregroundStyle(DWColors.onAccent).padding(.horizontal, 4).frame(minWidth: 16, minHeight: 16).background(DWColors.accent, in: Capsule()).offset(x: 12, y: -6) }
+                    }
+                Text(title).font(.caption2.weight(selected ? .bold : .medium)).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(selected ? DWColors.accent : DWColors.muted)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(selected ? DWColors.accentSoft : .clear, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(badge > 0 ? "\(badge)" : "")
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
 }
+
+/// Small muted line over a large title, with one optional trailing control.
+struct PageHeader<Trailing: View>: View {
+    var eyebrow: String?
+    let title: String
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                if let eyebrow { Text(eyebrow).font(DWFont.label).foregroundStyle(DWColors.muted) }
+                Text(title).font(DWFont.title).foregroundStyle(DWColors.text).accessibilityAddTraits(.isHeader)
+            }
+            Spacer(minLength: DWSpacing.sm)
+            trailing()
+        }
+    }
+}
+
+extension PageHeader where Trailing == EmptyView {
+    init(eyebrow: String? = nil, title: String) { self.init(eyebrow: eyebrow, title: title) { EmptyView() } }
+}
+
+/// Shared page scaffold: tinted background, scrolling column of cards.
+private struct PageScroll<Content: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DWSpacing.md) { content() }
+                .padding(.horizontal, DWSpacing.md).padding(.top, DWSpacing.xs).padding(.bottom, DWSpacing.lg)
+        }
+        .scrollIndicators(.hidden)
+        .scrollDismissesKeyboard(.interactively)
+        .background(DWColors.background(colorScheme).ignoresSafeArea())
+    }
+}
+
+private struct EmptyStateCard: View {
+    let symbol: String
+    let title: String
+    let hint: String
+    var body: some View {
+        VStack(spacing: DWSpacing.xs) {
+            Image(systemName: symbol).font(.title).foregroundStyle(DWColors.accent).frame(width: 56, height: 56).background(DWColors.accentSoft, in: Circle())
+            Text(title).font(DWFont.headline).foregroundStyle(DWColors.text)
+            Text(hint).font(DWFont.body).foregroundStyle(DWColors.muted).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DWSpacing.lg)
+        .dailyWidgetCard()
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct SectionLabel: View {
+    let title: String
+    var body: some View { Text(title).font(DWFont.label).foregroundStyle(DWColors.muted).padding(.horizontal, DWSpacing.xxs).accessibilityAddTraits(.isHeader) }
+}
+
+/// One task line inside a card: color dot or check, title, secondary line.
+private struct TaskRow<Leading: View, Trailing: View>: View {
+    let title: String
+    let detail: String
+    var done = false
+    @ViewBuilder var leading: () -> Leading
+    @ViewBuilder var trailing: () -> Trailing
+    var body: some View {
+        HStack(spacing: DWSpacing.sm) {
+            leading()
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(DWFont.headline).foregroundStyle(DWColors.text).strikethrough(done).lineLimit(2)
+                if !detail.isEmpty { Text(detail).font(DWFont.caption).foregroundStyle(DWColors.muted) }
+            }
+            Spacer(minLength: 0)
+            trailing()
+        }
+        .opacity(done ? 0.5 : 1)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+}
+
+private func taskColor(_ task: PlannerTask) -> Color { DWColors.taskColor(mode: task.colorMode, token: task.colorToken, category: task.category) }
+
+// MARK: Inbox
 
 private struct InboxPage: View {
     @EnvironmentObject private var store: PlannerStore
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
+    @State private var draft = ""
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        NavigationStack {
-            List {
-                if store.inbox.isEmpty { ContentUnavailableView(text("Inbox is clear", "收集箱已清空"), systemImage: "tray") }
-                ForEach(store.inbox) { task in
-                    Button { selectedTask = task; showingEditor = true } label: { VStack(alignment: .leading, spacing: 4) { Text(task.title.isEmpty ? text("Untitled task", "未命名任务") : task.title).foregroundStyle(.primary); Text(categoryName(task.category)).font(.caption).foregroundStyle(.secondary) } }
+        PageScroll {
+            PageHeader(eyebrow: text("Capture now, schedule later", "先记下来，再安排"), title: text("Inbox", "收集箱"))
+            quickAddField
+            if store.inbox.isEmpty {
+                EmptyStateCard(symbol: "tray", title: text("Inbox is clear", "收集箱是空的"), hint: text("Ideas without a time land here.", "还没定时间的想法会放在这里。"))
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(store.inbox.enumerated()), id: \.element.id) { index, task in
+                        if index > 0 { Divider().overlay(DWColors.line).padding(.leading, 22) }
+                        Button { selectedTask = task; showingEditor = true } label: {
+                            TaskRow(title: task.title.isEmpty ? text("Untitled task", "未命名任务") : task.title, detail: categoryName(task.category)) {
+                                Circle().fill(taskColor(task)).frame(width: 10, height: 10)
+                            } trailing: {
+                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(DWColors.muted.opacity(0.6))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, DWSpacing.xxs)
+                    }
                 }
+                .dailyWidgetCard(padding: DWSpacing.sm)
             }
-            .navigationTitle(text("Inbox", "收集箱"))
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { selectedTask = PlannerTask.empty(deviceID: UserDefaults.standard.string(forKey: "deviceID") ?? "iphone"); showingEditor = true } label: { Image(systemName: "plus") } } }
         }
+    }
+
+    private var quickAddField: some View {
+        HStack(spacing: DWSpacing.xs) {
+            Image(systemName: "plus").font(.body.weight(.semibold)).foregroundStyle(DWColors.accent)
+            TextField(text("Add to Inbox", "记一件事"), text: $draft).font(.body).focused($fieldFocused).submitLabel(.done).onSubmit(add)
+            if !draft.isEmpty {
+                Button(action: add) { Image(systemName: "arrow.up.circle.fill").font(.title2).foregroundStyle(DWColors.accent) }.buttonStyle(.plain).frame(width: 44, height: 44).accessibilityLabel(text("Add", "添加"))
+            }
+        }
+        .padding(.horizontal, DWSpacing.md)
+        .frame(minHeight: 52)
+        .dailyWidgetCard(padding: 0)
+    }
+
+    private func add() {
+        let title = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        var task = store.newTask()
+        task.title = title
+        store.save(task)
+        draft = ""
     }
 
     private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
     private func categoryName(_ value: String) -> String { store.language == "en" ? value.capitalized : ["personal":"个人", "health":"健康", "home":"生活", "social":"关系", "learning":"学习", "errands":"杂事"][value] ?? value }
 }
+
+// MARK: Top 3
 
 private struct TopThreePage: View {
     @EnvironmentObject private var store: PlannerStore
@@ -127,20 +314,29 @@ private struct TopThreePage: View {
     @Binding var showingEditor: Bool
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section(text("What matters today", "今天最重要的事")) {
-                    let items = store.todayTasks.filter(\.isFocus)
-                    if items.isEmpty { ContentUnavailableView(text("No Top 3 yet", "还没有设置今日重点"), systemImage: "sparkles") }
-                    ForEach(items) { item in Button { selectedTask = item.task; showingEditor = true } label: { HStack { Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle").foregroundStyle(.indigo); VStack(alignment: .leading) { Text(item.title).foregroundStyle(.primary); Text("\(time(item.start)) – \(time(item.end))\(item.spansNextDay ? " (+1)" : "")").font(.caption).foregroundStyle(.secondary) } } } }
+        let items = store.todayTasks.filter(\.isFocus)
+        PageScroll {
+            PageHeader(eyebrow: text("What matters today", "今天最重要的事"), title: text("Top 3", "今日重点"))
+            if items.isEmpty {
+                EmptyStateCard(symbol: "star", title: text("No Top 3 yet", "还没有设置重点"), hint: text("Open a task and turn on Top task.", "打开一个任务，把它设为今日重点。"))
+            } else {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    TaskRow(title: item.title.isEmpty ? text("Untitled task", "未命名任务") : item.title, detail: "\(DWFormat.time(item.start)) – \(DWFormat.time(item.end))\(item.spansNextDay ? " (+1)" : "")", done: item.isDone) {
+                        Text("\(index + 1)").font(DWFont.headline).monospacedDigit().foregroundStyle(DWColors.accent).frame(width: 32, height: 32).background(DWColors.accentSoft, in: Circle())
+                    } trailing: {
+                        Button { store.toggleDone(item) } label: { Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle").font(.title2).foregroundStyle(item.isDone ? DWColors.accent : DWColors.muted).frame(width: 44, height: 44) }
+                            .buttonStyle(.plain).accessibilityLabel(item.isDone ? text("Mark not done", "标为未完成") : text("Mark done", "标为完成"))
+                    }
+                    .onTapGesture { selectedTask = item.task; showingEditor = true }
+                    .dailyWidgetCard(padding: DWSpacing.sm)
                 }
             }
-            .navigationTitle(text("Top 3", "今日重点"))
         }
     }
     private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
-    private func time(_ minute: Int) -> String { String(format: "%02d:%02d", minute % 1440 / 60, minute % 60) }
 }
+
+// MARK: Review
 
 private struct DailyReviewPage: View {
     @EnvironmentObject private var store: PlannerStore
@@ -151,25 +347,116 @@ private struct DailyReviewPage: View {
         let tasks = store.todayTasks.sorted { ($0.isFocus ? 0 : 1, $0.start) < ($1.isFocus ? 0 : 1, $1.start) }
         let done = tasks.filter(\.isDone)
         let remaining = tasks.filter { !$0.isDone }
-        return NavigationStack {
-            List {
-                Section { Text(encouragement(done: done.count, total: tasks.count)).foregroundStyle(.indigo) }
-                Section(text("Progress", "进度")) { LabeledContent(text("Planned", "已计划"), value: "\(tasks.count)"); LabeledContent(text("Completed", "已完成"), value: "\(done.count)"); LabeledContent(text("Unfinished", "未完成"), value: "\(remaining.count)") }
-                Section(text("Completed", "已完成")) { ForEach(done) { taskRow($0, unfinished: false) } }
-                Section(text("Unfinished", "未完成")) { ForEach(remaining) { taskRow($0, unfinished: true) } }
+        PageScroll {
+            PageHeader(eyebrow: text("Look back gently", "轻轻回看这一天"), title: text("Daily review", "日末回顾"))
+            HStack(spacing: DWSpacing.md) {
+                DWProgressRing(completed: done.count, total: tasks.count, size: 64, lineWidth: 6)
+                Text(encouragement(done: done.count, total: tasks.count)).font(DWFont.body).foregroundStyle(DWColors.text).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
             }
-            .navigationTitle(text("Daily review", "日末回顾"))
+            .dailyWidgetCard()
+            if !remaining.isEmpty { SectionLabel(title: text("Unfinished", "未完成") + " · \(remaining.count)"); list(remaining, unfinished: true) }
+            if !done.isEmpty { SectionLabel(title: text("Completed", "已完成") + " · \(done.count)"); list(done, unfinished: false) }
         }
     }
 
-    @ViewBuilder private func taskRow(_ occurrence: ScheduledOccurrence, unfinished: Bool) -> some View {
-        HStack { VStack(alignment: .leading) { Text(occurrence.title).strikethrough(occurrence.isDone); Text("\(time(occurrence.start)) – \(time(occurrence.end))\(occurrence.isFocus ? " · ★" : "")").font(.caption).foregroundStyle(.secondary) }; Spacer(); if unfinished { Menu { Button(text("Move to inbox", "放入收集箱")) { store.moveToInbox(occurrence.task) } } label: { Image(systemName: "ellipsis.circle") } } }
-        .contentShape(Rectangle()).onTapGesture { selectedTask = occurrence.task; showingEditor = true }
+    private func list(_ items: [ScheduledOccurrence], unfinished: Bool) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, occurrence in
+                if index > 0 { Divider().overlay(DWColors.line).padding(.leading, 22) }
+                TaskRow(title: occurrence.title.isEmpty ? text("Untitled task", "未命名任务") : occurrence.title, detail: "\(DWFormat.time(occurrence.start)) – \(DWFormat.time(occurrence.end))", done: occurrence.isDone) {
+                    Circle().fill(taskColor(occurrence.task)).frame(width: 10, height: 10)
+                } trailing: {
+                    HStack(spacing: 0) {
+                        if occurrence.isFocus { Image(systemName: "star.fill").font(.caption).foregroundStyle(DWColors.accent).accessibilityLabel(text("Top task", "今日重点")) }
+                        if unfinished {
+                            Menu { Button { store.moveToInbox(occurrence.task) } label: { Label(text("Move to inbox", "放入收集箱"), systemImage: "tray.and.arrow.down") } } label: { Image(systemName: "ellipsis").font(.body.weight(.semibold)).foregroundStyle(DWColors.muted).frame(width: 44, height: 44).contentShape(Rectangle()) }
+                                .accessibilityLabel(text("More", "更多"))
+                        }
+                    }
+                }
+                .onTapGesture { selectedTask = occurrence.task; showingEditor = true }
+                .padding(.vertical, DWSpacing.xxs)
+            }
+        }
+        .dailyWidgetCard(padding: DWSpacing.sm)
     }
 
     private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
-    private func time(_ minute: Int) -> String { String(format: "%02d:%02d", minute % 1440 / 60, minute % 60) }
     private func encouragement(done: Int, total: Int) -> String { if total == 0 { return text("Nothing was scheduled today. Leaving space is valid, too.", "今天没有已计划的任务；留一点空白也是一种安排。") }; if done == total { return text("Wonderful — every planned task is complete.", "太棒了，今天安排的事项已经全部完成。") }; return text("Nice work: \(done) task(s) complete. The rest can be arranged with care.", "做得很好，已经完成 \(done) 项；剩下的也可以从容安排。") }
+}
+
+// MARK: Quick add (type or dictate) with the same confirmation card as Siri
+
+private struct QuickAddSheet: View {
+    @EnvironmentObject private var store: PlannerStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var input = ""
+    @State private var confirming = false
+    @FocusState private var fieldFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var trimmed: String { input.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var parsed: QuickInputParser.Result { QuickInputParser.parse(trimmed) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DWSpacing.md) {
+            HStack {
+                Text(confirming ? text("Add this?", "这样添加？") : text("Quick add", "快速添加")).font(DWFont.title)
+                Spacer()
+                Button { dismiss() } label: { Image(systemName: "xmark").font(.body.weight(.semibold)).foregroundStyle(DWColors.muted).frame(width: 44, height: 44) }.accessibilityLabel(text("Close", "关闭"))
+            }
+            if confirming { confirmation } else { editor }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, DWSpacing.lg).padding(.top, DWSpacing.md)
+        .tint(DWColors.accent)
+        .presentationDetents([.height(380)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(DWColors.surface(colorScheme))
+        .onAppear { fieldFocused = true }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: DWSpacing.sm) {
+            TextField(text("Tomorrow 3pm dentist", "明天下午三点牙医"), text: $input, axis: .vertical)
+                .font(.title3).lineLimit(1...3).focused($fieldFocused).submitLabel(.done)
+                .onChange(of: input) { _, value in if value.contains("\n") { input = value.replacingOccurrences(of: "\n", with: ""); review() } }
+                .padding(DWSpacing.md)
+                .background(DWColors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+            Label(text("Tap the microphone on the keyboard to dictate. No time means Inbox.", "点键盘上的麦克风可以直接说。没说时间就放进收集箱。"), systemImage: "mic.fill").font(DWFont.body).foregroundStyle(DWColors.muted)
+            Button(action: review) { Text(text("Next", "下一步")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
+                .buttonStyle(.borderedProminent).tint(DWColors.accent).foregroundStyle(trimmed.isEmpty ? DWColors.muted : DWColors.onAccent).disabled(trimmed.isEmpty)
+        }
+    }
+
+    private var confirmation: some View {
+        let summary = AddTaskSummary(parsed: parsed, english: store.language == "en")
+        return VStack(alignment: .leading, spacing: DWSpacing.sm) {
+            Label(trimmed, systemImage: "quote.opening").font(DWFont.body).foregroundStyle(DWColors.muted).lineLimit(2)
+            AddTaskConfirmationView(summary: summary)
+                .background(DWColors.accentSoft.opacity(0.6), in: RoundedRectangle(cornerRadius: DWRadius.card, style: .continuous))
+            HStack(spacing: DWSpacing.sm) {
+                Button { confirming = false; fieldFocused = true } label: { Text(text("Edit", "改一下")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
+                    .buttonStyle(.bordered).tint(DWColors.accent)
+                Button(action: save) { Text(text("OK", "好")).font(.body.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 50) }
+                    .buttonStyle(.borderedProminent).tint(DWColors.accent).foregroundStyle(DWColors.onAccent)
+            }
+        }
+    }
+
+    private func review() { guard !trimmed.isEmpty else { return }; fieldFocused = false; confirming = true }
+
+    private func save() {
+        let result = parsed
+        var task = store.newTask(date: result.date, start: result.start, end: result.end)
+        task.title = result.title
+        store.save(task)
+        if let date = result.date { store.selectedDate = .date(fromKey: date) }
+        dismiss()
+    }
+
+    private func text(_ english: String, _ chinese: String) -> String { store.language == "en" ? english : chinese }
 }
 
 private struct QuickCreateSheet: View {

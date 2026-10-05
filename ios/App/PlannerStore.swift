@@ -34,7 +34,12 @@ final class PlannerStore: ObservableObject {
 
     var dateKey: String { selectedDate.dayKey }
     var todayTasks: [ScheduledOccurrence] { tasks(for: dateKey) }
-    var inbox: [PlannerTask] { records.filter { !$0.isDeleted && $0.date == nil }.sorted { $0.title < $1.title } }
+    /// Newest first, so something just captured is at the top.
+    var inbox: [PlannerTask] { records.filter { !$0.isDeleted && $0.date == nil }.sorted { $0.createdAt > $1.createdAt } }
+
+    func newTask(date: String? = nil, start: Int? = nil, end: Int? = nil) -> PlannerTask {
+        PlannerTask.empty(date: date, start: start, end: end, deviceID: deviceID)
+    }
 
     func tasks(for key: String) -> [ScheduledOccurrence] {
         records.flatMap { $0.occurrences(on: key) }.sorted { $0.start < $1.start }
