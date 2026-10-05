@@ -187,3 +187,81 @@ enum LocalModelPrompt {
         return ModelTaskOutput(title: text("title") ?? "", dateText: text("date"), timeText: text("time"), durationMinutes: duration.flatMap { $0 > 0 ? $0 : nil }, wantsReminder: (object["remind"] as? Bool) ?? false, category: text("category"), recurrence: text("repeat"))
     }
 }
+
+extension PlannerTask {
+    mutating func apply(_ draft: TaskDraft) {
+        title = draft.title
+        date = draft.date
+        start = draft.start
+        end = draft.end
+        category = draft.category
+        recurrence = draft.recurrence
+        if !draft.notes.isEmpty { notes = draft.notes }
+    }
+}
+
+/// What one spoken or typed sentence does to the task list: add a task, or change one that exists
+/// ("把健身时间改到晚上9:30，持续一个小时"). Shared by the app, Siri and the Action Button.
+enum VoiceCommand {
+    enum Outcome: Equatable {
+        case added(PlannerTask)
+        case changed(previous: PlannerTask, current: PlannerTask)
+
+        var task: PlannerTask { switch self { case .added(let task): return task; case .changed(_, let current): return current } }
+    }
+
+    static func resolve(text: String, draft: TaskDraft, tasks: [PlannerTask], now: Date = .now, deviceID: String) -> Outcome {
+        guard let request = QuickInputParser.changeRequest(in: text) else { return .added(newTask(from: draft, deviceID: deviceID)) }
+        let change = QuickInputParser.parse(request.rest, now: now)
+        guard let existing = match(request.target, in: tasks, now: now) else {
+            // Nothing by that name yet: add it, named after what was said rather than the whole sentence.
+            var fallback = draft
+            fallback.title = request.target
+            return .added(newTask(from: fallback, deviceID: deviceID))
+        }
+
+        var current = existing
+        let today = now.dayKey
+        let oldLength = max(15, (existing.end ?? 0) - (existing.start ?? 0))
+        if let start = change.start {
+            current.start = start
+            current.end = start + (change.saidDuration ? change.duration : (existing.isScheduled ? oldLength : 30))
+            // A repeating task keeps its first day; a one-off moves to the day that was said, or stays where it is.
+            current.date = change.day ?? (existing.recurrence != "none" ? existing.date : nil) ?? (existing.date.flatMap { $0 >= today ? $0 : nil }) ?? today
+        } else if let day = change.day {
+            current.date = day
+            if !existing.isScheduled { current.start = QuickAddPolicy.defaultStartMinute; current.end = QuickAddPolicy.defaultStartMinute + 30 }
+        } else if change.saidDuration, let start = existing.start {
+            current.end = start + change.duration
+        } else {
+            // "改到…" with nothing we can read after it: leave the task alone.
+            return .changed(previous: existing, current: existing)
+        }
+        current.touch(deviceID: deviceID)
+        return .changed(previous: existing, current: current)
+    }
+
+    private static func newTask(from draft: TaskDraft, deviceID: String) -> PlannerTask {
+        var task = PlannerTask.empty(deviceID: deviceID)
+        task.apply(draft)
+        return task
+    }
+
+    /// The task the user most likely means: same words in the title, preferring something still to do today or soon.
+    static func match(_ target: String, in tasks: [PlannerTask], now: Date) -> PlannerTask? {
+        func normalized(_ value: String) -> String { value.lowercased().filter { !$0.isWhitespace } }
+        let wanted = normalized(target)
+        guard wanted.count >= 1 else { return nil }
+        let today = now.dayKey
+        func rank(_ task: PlannerTask) -> Int {
+            if task.recurrence != "none" { return 0 }
+            guard let date = task.date else { return 3 }
+            if date == today { return task.done ? 2 : 0 }
+            return date > today ? 1 : 4
+        }
+        return tasks
+            .filter { !$0.isDeleted && !$0.title.isEmpty }
+            .filter { let title = normalized($0.title); return title.contains(wanted) || (title.count >= 2 && wanted.contains(title)) }
+            .min { (rank($0), $0.date ?? "9999", $0.start ?? 0) < (rank($1), $1.date ?? "9999", $1.start ?? 0) }
+    }
+}

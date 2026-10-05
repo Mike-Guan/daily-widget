@@ -133,7 +133,7 @@ struct ContentView: View {
             HStack(spacing: DWSpacing.sm) {
                 Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(DWColors.accent)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(text("Added", "已添加") + " · " + task.title).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
+                    Text((store.recentlyChangedFrom == nil ? text("Added", "已添加") : text("Changed", "已修改")) + " · " + task.title).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
                     Text(AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end, category: task.category, recurrence: task.recurrence, notes: task.notes), english: store.language == "en").when + (store.recentlyAddedEngine == "apple" ? text(" · Apple Intelligence", " · Apple 智能") : store.recentlyAddedEngine == "bundled" ? text(" · bundled model", " · 自带模型") : text(" · rules", " · 规则"))).font(DWFont.caption).foregroundStyle(DWColors.muted).lineLimit(1)
                 }
                 Spacer(minLength: 0)
@@ -347,7 +347,7 @@ private struct InboxPage: View {
         let english = store.language == "en"
         Task {
             let result = await TaskInterpreter.interpret(title, english: english)
-            store.addFromQuickAdd(result, jumpToDate: false)
+            store.applyQuickAdd(text: title, draft: result, jumpToDate: false)
         }
     }
 
@@ -551,7 +551,7 @@ private struct QuickAddSheet: View {
         Task {
             let result = await TaskInterpreter.interpret(sentence, english: english)
             if QuickAddPolicy.addsImmediately {
-                store.addFromQuickAdd(result)
+                store.applyQuickAdd(text: sentence, draft: result)
                 dismiss()
                 return
             }
