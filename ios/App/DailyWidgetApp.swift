@@ -10,7 +10,10 @@ struct DailyWidgetApp: App {
             ContentView()
                 .environmentObject(store)
                 .onOpenURL { url in store.handleDeepLink(url) }
-                .onChange(of: scenePhase) { _, phase in if phase == .active { store.reload() } }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .active { store.appBecameActive() }
+                    else if phase == .background { store.appEnteredBackground() }
+                }
         }
     }
 }
