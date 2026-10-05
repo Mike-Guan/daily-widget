@@ -215,9 +215,9 @@ struct DailyWidgetWidgetView: View {
 
     private var voiceButton: some View {
         Link(destination: URL(string: "dailywidget://quickadd")!) {
-            Text(text("Add", "记一件事")).font(.caption.weight(.bold)).foregroundStyle(DWColors.accent).lineLimit(1)
-                .padding(.horizontal, 12).frame(height: 30)
-                .background(DWColors.accentSoft, in: Capsule())
+            MicGlyph().fill(DWColors.accent).frame(width: 17, height: 17)
+                .frame(width: 34, height: 34)
+                .background(DWColors.accentSoft, in: Circle())
         }
         .accessibilityLabel(text("Add a task by voice", "语音记一件事"))
     }
@@ -350,6 +350,25 @@ struct DailyWidgetWidgetView: View {
 
     private func time(_ minute: Int) -> String { String(format: "%02d:%02d", minute / 60, minute % 60) }
     private func text(_ english: String, _ chinese: String) -> String { entry.snapshot.language == "en" ? english : chinese }
+}
+
+/// The widget's own microphone mark, drawn on a 16 x 16 grid.
+struct MicGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let scale = min(rect.width, rect.height) / 16
+        let origin = CGPoint(x: rect.midX - 8 * scale, y: rect.midY - 8 * scale)
+        func box(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> CGRect {
+            CGRect(x: origin.x + x * scale, y: origin.y + y * scale, width: width * scale, height: height * scale)
+        }
+        var path = Path()
+        path.addRoundedRect(in: box(5.25, 1, 5.5, 9), cornerSize: CGSize(width: 2.75 * scale, height: 2.75 * scale))
+        var arc = Path()
+        arc.addArc(center: CGPoint(x: origin.x + 8 * scale, y: origin.y + 7.4 * scale), radius: 4.6 * scale, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
+        path.addPath(arc.strokedPath(StrokeStyle(lineWidth: 1.6 * scale, lineCap: .round)))
+        path.addRoundedRect(in: box(7.2, 12, 1.6, 2.2), cornerSize: CGSize(width: 0.4 * scale, height: 0.4 * scale))
+        path.addRoundedRect(in: box(5, 13.6, 6, 1.6), cornerSize: CGSize(width: 0.8 * scale, height: 0.8 * scale))
+        return path
+    }
 }
 
 /// A lock-screen circle that opens voice capture.
