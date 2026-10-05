@@ -187,3 +187,80 @@ enum LocalModelPrompt {
         return ModelTaskOutput(title: text("title") ?? "", dateText: text("date"), timeText: text("time"), durationMinutes: duration.flatMap { $0 > 0 ? $0 : nil }, wantsReminder: (object["remind"] as? Bool) ?? false, category: text("category"), recurrence: text("repeat"))
     }
 }
+
+/// A sentence that changes the time of a task that already exists ("Frank把健身时间改到了晚上9:30，
+/// 持续一个小时", "move gym to 9pm") instead of adding a new one. Found by rules only, before any model.
+struct RescheduleRequest: Equatable {
+    /// The words that name the task ("健身").
+    var subject: String
+    /// The day the task is on now, when the sentence names it ("把明天的健身…").
+    var fromDay: String?
+    /// The new day, time and length; nil keeps what the task has.
+    var date: String?
+    var start: Int?
+    var duration: Int?
+
+    private static let verbs = "改|挪|移|推迟|推|延后|延|提前|换|调整|调|放"
+    private static let chinese = "^(?:.*?把)?(.+?)(?:的)?(?:时间|日程|安排)?(?:\(verbs))了?(?:到|成|在)了?(.+)$"
+    private static let english = "^(?:please\\s+)?(?:move|reschedule|push|shift|change)\\s+(?:the\\s+|my\\s+)?(.+?)\\s+(?:to|until)\\s+(.+)$"
+
+    static func parse(_ text: String, now: Date = .now) -> RescheduleRequest? {
+        let sentence = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let match = QuickInputParser.firstMatch(chinese, in: sentence) ?? QuickInputParser.firstMatch(english, in: sentence),
+              var subject = match[1], let target = match[2] else { return nil }
+        var fromDay: String?
+        if let (day, rest) = DatePhrase.leading(in: subject, now: now) {
+            fromDay = day.dayKey
+            subject = rest
+        }
+        subject = subject.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "的，,")))
+        guard (1...20).contains(subject.count) else { return nil }
+
+        let parsed = QuickInputParser.parse(target, now: now)
+        let saidLength = QuickInputParser.firstMatch("小时|分钟|\\bhours?\\b|\\bhrs?\\b|\\bmins?\\b|\\bminutes?\\b", in: target) != nil
+        let request = RescheduleRequest(subject: subject, fromDay: fromDay, date: parsed.day, start: parsed.start, duration: saidLength ? parsed.duration : nil)
+        // "把书放到书架上" names no day or time, so it is not about the schedule.
+        return request.date == nil && request.start == nil ? nil : request
+    }
+
+    /// The task the sentence most likely means: one whose title contains the subject (or the other
+    /// way round), on the day named, else today, else the nearest coming day.
+    func match(in tasks: [PlannerTask], today: String) -> PlannerTask? {
+        let wanted = Self.normalized(subject)
+        let candidates = tasks.filter { task in
+            guard !task.isDeleted, task.isScheduled else { return false }
+            let title = Self.normalized(task.title)
+            guard min(title.count, wanted.count) >= 2 else { return title == wanted && !title.isEmpty }
+            return title.contains(wanted) || wanted.contains(title)
+        }
+        let exact = { (task: PlannerTask) in Self.normalized(task.title) == wanted }
+        func best(_ list: [PlannerTask]) -> PlannerTask? {
+            list.sorted { (exact($0) ? 0 : 1, $0.date ?? "", $0.start ?? 0) < (exact($1) ? 0 : 1, $1.date ?? "", $1.start ?? 0) }.first
+        }
+        if let fromDay { return best(candidates.filter { $0.primaryOccurs(on: fromDay) }) }
+        if let found = best(candidates.filter { $0.primaryOccurs(on: today) }) { return found }
+        return best(candidates.filter { $0.recurrence == "none" && ($0.date ?? "") > today })
+    }
+
+    /// The task with the new day, time and length. A repeating task keeps its first day.
+    func applied(to task: PlannerTask) -> PlannerTask {
+        var changed = task
+        let length = duration ?? max(TimeDrag.step, (task.end ?? 0) - (task.start ?? 0))
+        if let date, task.recurrence == "none" { changed.date = date }
+        if let newStart = start ?? task.start {
+            changed.start = newStart
+            changed.end = newStart + length
+        }
+        return changed
+    }
+
+    /// What to add when no task matches: the subject as the title, at the new time.
+    func newTaskDraft(today: String) -> TaskDraft? {
+        guard let start else { return nil }
+        return TaskDraft(title: subject, date: date ?? today, start: start, end: start + (duration ?? 30))
+    }
+
+    private static func normalized(_ text: String) -> String {
+        text.lowercased().filter { !$0.isWhitespace && !$0.isPunctuation }
+    }
+}

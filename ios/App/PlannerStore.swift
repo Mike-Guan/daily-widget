@@ -122,6 +122,25 @@ final class PlannerStore: ObservableObject {
         if offersUndo { recentlyAdded = nil; recentlyMoved = TimeChange(before: before, after: records.first { $0.id == changed.id } ?? changed) }
     }
 
+    /// Applies "把健身改到晚上9:30" to the task it names, or adds the subject at the new time when
+    /// nothing matches. False when the sentence is not a reschedule, so it is added as usual.
+    func reschedule(sentence: String) -> Bool {
+        guard let request = RescheduleRequest.parse(sentence) else { return false }
+        let today = Date().dayKey
+        guard let task = request.match(in: records, today: today) else {
+            guard let draft = request.newTaskDraft(today: today) else { return false }
+            addFromQuickAdd(draft)
+            recentlyAddedEngine = "rules"
+            return true
+        }
+        let changed = request.applied(to: task)
+        save(changed)
+        if let date = changed.date { selectedDate = .date(fromKey: date) }
+        recentlyAdded = nil
+        recentlyMoved = TimeChange(before: task, after: records.first { $0.id == task.id } ?? changed)
+        return true
+    }
+
     /// Puts the task from the Undo banner back where it was.
     func undoRecentlyMoved() {
         guard let change = recentlyMoved, var task = records.first(where: { $0.id == change.before.id }) else { return }

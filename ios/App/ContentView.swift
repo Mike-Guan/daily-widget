@@ -159,7 +159,7 @@ struct ContentView: View {
             let task = change.after
             HStack(spacing: DWSpacing.sm) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(text("Moved to", "已改到") + " " + DWFormat.time(task.start ?? 0) + "–" + DWFormat.time(task.end ?? 0)).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
+                    Text(text("Moved to", "已改到") + " " + AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end), english: store.language == "en").when).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
                     Text(task.title.isEmpty ? text("Untitled task", "未命名任务") : task.title).font(DWFont.caption).foregroundStyle(DWColors.muted).lineLimit(1)
                 }
                 Spacer(minLength: 0)
@@ -370,6 +370,7 @@ private struct InboxPage: View {
         fieldFocused = false
         // Same understanding as voice: a sentence with a day or time is scheduled, anything else stays here.
         let english = store.language == "en"
+        if store.reschedule(sentence: title) { return }
         Task {
             let result = await TaskInterpreter.interpret(title, english: english)
             store.addFromQuickAdd(result, jumpToDate: false)
@@ -572,6 +573,8 @@ private struct QuickAddSheet: View {
         let sentence = trimmed
         guard !sentence.isEmpty, stage == .input else { return }
         fieldFocused = false
+        // "把健身改到晚上9:30" changes the task that exists instead of adding one.
+        if store.reschedule(sentence: sentence) { dismiss(); return }
         stage = .understanding
         Task {
             let result = await TaskInterpreter.interpret(sentence, english: english)

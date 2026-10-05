@@ -279,3 +279,78 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertNil(QuickInputParser.minute(fromTimePhrase: "二十五点"))
     }
 }
+
+final class RescheduleRequestTests: XCTestCase {
+    // Monday 2026-10-05, 10:00 local time.
+    private let now = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 5, hour: 10))!
+
+    private func task(_ title: String, date: String = "2026-10-05", start: Int = 1080, end: Int = 1140, recurrence: String = "none") -> PlannerTask {
+        var task = PlannerTask(id: UUID().uuidString, date: date, start: start, end: end, title: title, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", updatedBy: "test")
+        task.recurrence = recurrence
+        return task
+    }
+
+    func testMovesTodaysGymToNineThirtyForAnHour() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("Frank把健身时间改到了晚上9:30，持续一个小时", now: now))
+        XCTAssertEqual(request.subject, "健身")
+        XCTAssertEqual(request.start, 21 * 60 + 30)
+        XCTAssertEqual(request.duration, 60)
+        let gym = task("健身")
+        let found = try XCTUnwrap(request.match(in: [task("开会"), gym], today: "2026-10-05"))
+        XCTAssertEqual(found.id, gym.id)
+        let moved = request.applied(to: found)
+        XCTAssertEqual(moved.date, "2026-10-05")
+        XCTAssertEqual(moved.start, 1290)
+        XCTAssertEqual(moved.end, 1350)
+    }
+
+    func testKeepsTheLengthWhenNoneIsSaid() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("把组会挪到下午3点", now: now))
+        XCTAssertNil(request.duration)
+        let moved = request.applied(to: task("和组里开组会", start: 600, end: 690))
+        XCTAssertEqual(moved.start, 900)
+        XCTAssertEqual(moved.end, 990)
+    }
+
+    func testMovesToAnotherDayAndKeepsTheTime() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("把牙医推迟到周五", now: now))
+        XCTAssertEqual(request.date, "2026-10-09")
+        XCTAssertNil(request.start)
+        let moved = request.applied(to: task("牙医", start: 900, end: 960))
+        XCTAssertEqual(moved.date, "2026-10-09")
+        XCTAssertEqual(moved.start, 900)
+        XCTAssertEqual(moved.end, 960)
+    }
+
+    func testTheDayInTheSubjectPicksWhichTask() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("把明天的健身改到早上7点", now: now))
+        XCTAssertEqual(request.subject, "健身")
+        XCTAssertEqual(request.fromDay, "2026-10-06")
+        let today = task("健身"), tomorrow = task("健身", date: "2026-10-06")
+        XCTAssertEqual(request.match(in: [today, tomorrow], today: "2026-10-05")?.id, tomorrow.id)
+    }
+
+    func testFallsBackToTheNearestComingTask() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("健身改到9点半", now: now))
+        let past = task("健身", date: "2026-10-01"), later = task("健身", date: "2026-10-08"), latest = task("健身", date: "2026-10-12")
+        XCTAssertEqual(request.match(in: [latest, past, later], today: "2026-10-05")?.id, later.id)
+    }
+
+    func testEnglish() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("move gym to 9pm", now: now))
+        XCTAssertEqual(request.subject, "gym")
+        XCTAssertEqual(request.start, 21 * 60)
+    }
+
+    func testNoMatchAddsTheSubjectAtTheNewTime() throws {
+        let request = try XCTUnwrap(RescheduleRequest.parse("把健身改到晚上9:30，持续一个小时", now: now))
+        XCTAssertNil(request.match(in: [task("开会")], today: "2026-10-05"))
+        XCTAssertEqual(request.newTaskDraft(today: "2026-10-05"), TaskDraft(title: "健身", date: "2026-10-05", start: 1290, end: 1350))
+    }
+
+    func testSentencesWithoutADayOrTimeAreNotReschedules() {
+        XCTAssertNil(RescheduleRequest.parse("把书放到书架上", now: now))
+        XCTAssertNil(RescheduleRequest.parse("明天下午三点牙医", now: now))
+        XCTAssertNil(RescheduleRequest.parse("把会议改成线上", now: now))
+    }
+}
