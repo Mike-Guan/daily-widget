@@ -217,8 +217,6 @@ struct DailyWidgetWidgetView: View {
         .padding(.vertical, 6)
     }
 
-    }
-
     /// The task shown in the big card: the one running now, otherwise the earliest one still to come.
     private var nextItem: WidgetSnapshot.Item? {
         if let current = entry.snapshot.current, !current.done { return current }
