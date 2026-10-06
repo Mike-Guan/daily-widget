@@ -385,14 +385,9 @@ struct QuickAddAccessoryWidget: Widget {
                 AccessoryWidgetBackground()
                 MicGlyph().fill(.primary).frame(width: 24, height: 24).widgetAccentable()
             }
-            Group {
-                if #available(iOS 18.0, *) {
-                    // Listens in the background instead of opening the app.
-                    Button(intent: RecordTaskIntent()) { circle }.buttonStyle(.plain)
-                } else {
-                    circle.widgetURL(URL(string: "dailywidget://quickadd"))
-                }
-            }
+            // Opens the app straight into listening. Starting the microphone with the app in the
+            // background is refused by iOS (session activation fails with '!int'), so this is the reliable path.
+            circle.widgetURL(URL(string: "dailywidget://quickadd"))
             .containerBackground(.clear, for: .widget)
             .accessibilityLabel(entry.snapshot.language == "en" ? "Add a task by voice" : "语音记一件事")
         }
@@ -412,15 +407,28 @@ struct VoiceControlValue: ControlValueProvider {
 @available(iOS 18.0, *)
 struct QuickAddControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.guanshiyang.dailywidget.quickadd.open") {
+            ControlWidgetButton(action: OpenQuickAddIntent()) { Label("记一件事", systemImage: "mic.fill") }
+        }
+        .displayName("记一件事")
+        .description("打开 Daily Widget 并立刻开始听。Opens Daily Widget and starts listening.")
+    }
+}
+
+/// Experimental: listens without opening the app. iOS has refused the microphone in the background
+/// so far; this control stays so a different audio session setup can be tried on the device.
+@available(iOS 18.0, *)
+struct BackgroundVoiceControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: VoiceCaptureStatus.controlKind, provider: VoiceControlValue()) { listening in
             // A toggle: the first tap starts listening and the control lights up, the second tap ends it.
-            ControlWidgetToggle("记一件事", isOn: listening, action: ToggleVoiceCaptureIntent()) { on in
-                Label(on ? "正在听" : "记一件事", systemImage: on ? "waveform" : "mic.fill")
+            ControlWidgetToggle("后台听（实验）", isOn: listening, action: ToggleVoiceCaptureIntent()) { on in
+                Label(on ? "正在听" : "后台听（实验）", systemImage: on ? "waveform" : "waveform.badge.mic")
             }
             .tint(DWColors.accent)
         }
-        .displayName("记一件事")
-        .description("不打开 App，直接听你说。Listens without opening the app.")
+        .displayName("后台听（实验）")
+        .description("不打开 App 直接听，可能不成功。Experimental: listens without opening the app.")
     }
 }
 
@@ -430,6 +438,7 @@ struct DailyWidgetBundle: WidgetBundle {
         DailyWidgetWidget()
         QuickAddAccessoryWidget()
         if #available(iOS 18.0, *) { QuickAddControl() }
+        if #available(iOS 18.0, *) { BackgroundVoiceControl() }
         VoiceCaptureLiveActivity()
     }
 }

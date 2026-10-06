@@ -18,7 +18,9 @@ final class SpeechDictation: ObservableObject {
 
     var isListening: Bool { state == .listening }
 
-    func start(english: Bool) async {
+    /// - Parameter fromBackground: true when the app is not on screen. A session that mixes with
+    ///   other audio is the only kind iOS lets an app activate from the background.
+    func start(english: Bool, fromBackground: Bool = false) async {
         guard state != .listening else { return }
         transcript = ""
         func message(_ en: String, _ zh: String) -> String { english ? en : zh }
@@ -36,7 +38,8 @@ final class SpeechDictation: ObservableObject {
         var step = "audio session category"
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement, options: [])
+            if fromBackground { try session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker]) }
+            else { try session.setCategory(.record, mode: .measurement, options: []) }
             step = "audio session activation"
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             step = "audio engine"

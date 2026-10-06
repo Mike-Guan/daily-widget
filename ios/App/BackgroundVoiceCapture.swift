@@ -43,7 +43,7 @@ final class BackgroundVoiceCapture {
         // From the background the microphone is only granted once the system has registered the
         // Live Activity, which can lag the request by a moment, so try a few times before giving up.
         for attempt in 1...4 {
-            await dictation.start(english: english)
+            await dictation.start(english: english, fromBackground: true)
             if dictation.isListening { if attempt > 1 { VoiceCaptureLog.note("microphone started on attempt \(attempt)") }; break }
             VoiceCaptureLog.note("attempt \(attempt) failed · \(dictation.lastFailure)")
             try? await Task.sleep(for: .milliseconds(350))
