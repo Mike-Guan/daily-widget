@@ -17,6 +17,8 @@ enum QuickInputParser {
         var recurrence = "none"
         /// Only a part of the day was said ("晚上"), so a usual time for it was filled in.
         var assumedTime = false
+        /// A length was actually said ("一个小时", "9点到11点"), as opposed to the 30-minute default.
+        var saidDuration = false
 
         static func == (lhs: Result, rhs: Result) -> Bool {
             lhs.date == rhs.date && lhs.start == rhs.start && lhs.end == rhs.end && lhs.title == rhs.title && lhs.duration == rhs.duration && lhs.hasExplicitTime == rhs.hasExplicitTime
@@ -95,7 +97,8 @@ enum QuickInputParser {
             saidDuration = true
             return after
         }
-        if let (minute, rest) = parseTime(remainder) {
+        // The strict form first, so "9:30pm" on its own keeps its "pm" instead of leaving it as the title.
+        if let (minute, rest) = parseTime(remainder, strict: true) ?? parseTime(remainder) {
             start = clampMinute(minute)
             remainder = takeRangeEnd(from: start!, rest).trimmingCharacters(in: .whitespaces)
         } else if let (minute, before, after) = timeAnywhere(in: remainder) {
@@ -111,7 +114,19 @@ enum QuickInputParser {
         remainder = stripFiller(remainder)
         if let trailing = firstMatch("[，,\\s]*(记得)?提醒我(一下)?$", in: remainder)?[0], trailing.count < remainder.count { remainder = String(remainder.dropLast(trailing.count)) }
         let hasExplicitTime = start != nil
-        return Result(date: hasExplicitTime ? (day ?? baseDate).dayKey : nil, start: start, end: start.map { $0 + duration }, title: remainder.isEmpty ? original : remainder, duration: duration, hasExplicitTime: hasExplicitTime, day: day?.dayKey, recurrence: recurrence, assumedTime: assumedTime)
+        return Result(date: hasExplicitTime ? (day ?? baseDate).dayKey : nil, start: start, end: start.map { $0 + duration }, title: remainder.isEmpty ? original : remainder, duration: duration, hasExplicitTime: hasExplicitTime, day: day?.dayKey, recurrence: recurrence, assumedTime: assumedTime, saidDuration: saidDuration)
+    }
+
+    /// "把健身时间改到晚上9:30" / "move the gym to 9pm": the task being talked about and what follows the verb.
+    static func changeRequest(in text: String) -> (target: String, rest: String)? {
+        let sentence = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let match = firstMatch("把(.+?)(?:的)?(?:时间|日程|安排)?(?:给我|帮我)?(?:改到了?|改成了?|改为|改在|挪到了?|调到了?|调整到了?|换到了?|移到了?|推迟到了?|提前到了?|延后到了?|延到了?|推到了?)(.*)$", in: sentence), let target = match[1]?.trimmingCharacters(in: .whitespaces), !target.isEmpty {
+            return (target, match[2] ?? "")
+        }
+        if let match = firstMatch("^(?:please\\s+)?(?:move|reschedule|change|push|shift)\\s+(?:my\\s+|the\\s+)?(.+?)\\s+to\\s+(.*)$", in: sentence), let target = match[1]?.trimmingCharacters(in: .whitespaces), !target.isEmpty {
+            return (target, match[2] ?? "")
+        }
+        return nil
     }
 
     /// A part of the day said without a clock time, and the usual time used for it.

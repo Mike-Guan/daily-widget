@@ -30,12 +30,17 @@ struct AddTaskIntent: AppIntent {
             )
         }
 
-        var task = PlannerTask.empty(date: draft.date, start: draft.start, end: draft.end, deviceID: "siri")
-        task.apply(draft)
-        if draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
+        // The same sentence may change a task that exists ("把健身改到晚上九点半") instead of adding one.
+        let outcome = VoiceCommand.resolve(text: text, draft: draft, tasks: (try? repository.load()) ?? [], deviceID: "siri")
+        let task = outcome.task
+        if case .added = outcome, draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
         let tasks = try repository.upsert(task)
         await ReminderScheduler.reconcile(tasks: tasks, english: english)
-        return .result(dialog: IntentDialog(stringLiteral: summary.done)) { AddTaskConfirmationView(summary: summary, undoTaskID: task.id) }
+        let result = AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end, category: task.category, recurrence: task.recurrence, source: draft.source, wantsReminder: draft.wantsReminder), english: english)
+        if case .changed = outcome {
+            return .result(dialog: IntentDialog(stringLiteral: english ? "Changed." : "已修改。")) { AddTaskConfirmationView(summary: result) }
+        }
+        return .result(dialog: IntentDialog(stringLiteral: result.done)) { AddTaskConfirmationView(summary: result, undoTaskID: task.id) }
     }
 }
 
@@ -58,18 +63,6 @@ struct UndoAddTaskIntent: AppIntent {
             tasks[index].touch(deviceID: "siri")
         }
         return .result(dialog: IntentDialog(stringLiteral: english ? "Removed." : "已撤销。"))
-    }
-}
-
-extension PlannerTask {
-    mutating func apply(_ draft: TaskDraft) {
-        title = draft.title
-        date = draft.date
-        start = draft.start
-        end = draft.end
-        category = draft.category
-        recurrence = draft.recurrence
-        if !draft.notes.isEmpty { notes = draft.notes }
     }
 }
 

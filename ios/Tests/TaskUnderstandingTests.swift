@@ -235,6 +235,76 @@ final class TaskUnderstandingTests: XCTestCase {
         XCTAssertEqual(partial, ModelTaskOutput(title: "买牛奶"))
     }
 
+    // MARK: Changing a task that already exists
+
+    private func existing(_ id: String, _ title: String, date: String?, start: Int?, end: Int?, recurrence: String = "none") -> PlannerTask {
+        var task = PlannerTask(id: id, date: date, start: start, end: end, title: title, createdAt: "2026-10-01T00:00:00Z", updatedAt: "2026-10-01T00:00:00Z", updatedBy: "test")
+        task.recurrence = recurrence
+        return task
+    }
+
+    private func resolve(_ text: String, _ tasks: [PlannerTask]) -> VoiceCommand.Outcome {
+        VoiceCommand.resolve(text: text, draft: draft(text, nil), tasks: tasks, now: now, deviceID: "test")
+    }
+
+    func testMoveAnExistingTaskBySayingSo() throws {
+        let gym = existing("gym", "健身", date: "2026-10-05", start: 18 * 60, end: 18 * 60 + 45)
+        let other = existing("report", "写周报", date: "2026-10-05", start: 600, end: 660)
+        guard case .changed(let previous, let current) = resolve("Frank把健身时间改到了晚上9:30，持续一个小时", [other, gym]) else { return XCTFail("expected a change") }
+        XCTAssertEqual(previous, gym)
+        XCTAssertEqual(current.id, "gym")
+        XCTAssertEqual(current.title, "健身")
+        XCTAssertEqual(current.date, "2026-10-05")
+        XCTAssertEqual(current.start, 21 * 60 + 30)
+        XCTAssertEqual(current.end, 22 * 60 + 30)
+    }
+
+    func testMoveKeepsTheLengthWhenNoneIsSaid() {
+        let gym = existing("gym", "去健身房健身", date: "2026-10-05", start: 18 * 60, end: 18 * 60 + 45)
+        guard case .changed(_, let current) = resolve("把健身挪到明天早上七点", [gym]) else { return XCTFail("expected a change") }
+        XCTAssertEqual(current.date, "2026-10-06")
+        XCTAssertEqual(current.start, 420)
+        XCTAssertEqual(current.end, 465)
+    }
+
+    func testMoveOnlyTheDay() {
+        let dentist = existing("d", "牙医", date: "2026-10-06", start: 900, end: 930)
+        guard case .changed(_, let current) = resolve("把牙医改到下周三", [dentist]) else { return XCTFail("expected a change") }
+        XCTAssertEqual(current.date, "2026-10-14")
+        XCTAssertEqual(current.start, 900)
+    }
+
+    func testMovePrefersTodaysTaskAndRepeatingTasksKeepTheirFirstDay() {
+        let old = existing("old", "跑步", date: "2026-09-20", start: 420, end: 450)
+        let daily = existing("daily", "跑步", date: "2026-09-01", start: 420, end: 450, recurrence: "daily")
+        guard case .changed(_, let current) = resolve("把跑步改到晚上八点", [old, daily]) else { return XCTFail("expected a change") }
+        XCTAssertEqual(current.id, "daily")
+        XCTAssertEqual(current.date, "2026-09-01")
+        XCTAssertEqual(current.start, 1200)
+    }
+
+    func testEnglishMove() {
+        let gym = existing("gym", "Gym", date: "2026-10-05", start: 1080, end: 1140)
+        guard case .changed(_, let current) = resolve("move my gym to 9:30pm", [gym]) else { return XCTFail("expected a change") }
+        XCTAssertEqual(current.start, 21 * 60 + 30)
+        XCTAssertEqual(current.end, 22 * 60 + 30)
+    }
+
+    func testMoveWithNoMatchingTaskAddsOneWithACleanTitle() {
+        guard case .added(let task) = resolve("Frank把健身时间改到了晚上9:30，持续一个小时", []) else { return XCTFail("expected an add") }
+        XCTAssertEqual(task.title, "健身")
+        XCTAssertEqual(task.start, 21 * 60 + 30)
+        XCTAssertEqual(task.end, 22 * 60 + 30)
+        XCTAssertEqual(task.date, "2026-10-05")
+    }
+
+    func testOrdinarySentencesStillAdd() {
+        let gym = existing("gym", "健身", date: "2026-10-05", start: 1080, end: 1140)
+        guard case .added(let task) = resolve("明天下午三点牙医", [gym]) else { return XCTFail("expected an add") }
+        XCTAssertEqual(task.title, "牙医")
+        XCTAssertNil(QuickInputParser.changeRequest(in: "把手机拿去修"))
+    }
+
     // MARK: Date phrases resolved in code
 
     private func day(_ phrase: String) -> String? { DatePhrase.resolve(phrase, now: now)?.dayKey }

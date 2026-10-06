@@ -133,7 +133,7 @@ struct ContentView: View {
             HStack(spacing: DWSpacing.sm) {
                 Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(DWColors.accent)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(text("Added", "已添加") + " · " + task.title).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
+                    Text((store.recentlyChangedFrom == nil ? text("Added", "已添加") : text("Changed", "已修改")) + " · " + task.title).font(DWFont.headline).foregroundStyle(DWColors.text).lineLimit(1)
                     Text(AddTaskSummary(draft: TaskDraft(title: task.title, date: task.date, start: task.start, end: task.end, category: task.category, recurrence: task.recurrence, notes: task.notes), english: store.language == "en").when + (store.recentlyAddedEngine == "apple" ? text(" · Apple Intelligence", " · Apple 智能") : store.recentlyAddedEngine == "bundled" ? text(" · bundled model", " · 自带模型") : text(" · rules", " · 规则"))).font(DWFont.caption).foregroundStyle(DWColors.muted).lineLimit(1)
                 }
                 Spacer(minLength: 0)
@@ -347,7 +347,7 @@ private struct InboxPage: View {
         let english = store.language == "en"
         Task {
             let result = await TaskInterpreter.interpret(title, english: english)
-            store.addFromQuickAdd(result, jumpToDate: false)
+            store.applyQuickAdd(text: title, draft: result, jumpToDate: false)
         }
     }
 
@@ -551,7 +551,7 @@ private struct QuickAddSheet: View {
         Task {
             let result = await TaskInterpreter.interpret(sentence, english: english)
             if QuickAddPolicy.addsImmediately {
-                store.addFromQuickAdd(result)
+                store.applyQuickAdd(text: sentence, draft: result)
                 dismiss()
                 return
             }
@@ -589,13 +589,15 @@ private struct QuickCreateSheet: View {
     @Binding var selectedTask: PlannerTask?
     @Binding var showingEditor: Bool
     @State private var title = ""
+    @FocusState private var nameFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
                 Text(text("What is this time for?", "这段时间要做什么？")).font(.headline)
                 Text("\(time(task.start ?? 0)) – \(time(task.end ?? 0))").font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-                TextField(text("Task name", "任务名称"), text: $title).textFieldStyle(.roundedBorder).submitLabel(.done).onSubmit { _ = save() }
+                TextField(text("Task name", "任务名称"), text: $title).textFieldStyle(.roundedBorder).submitLabel(.done).focused($nameFocused).onSubmit { _ = save() }
                 Button { if save() { showingEditor = true } } label: { Label(text("Add details", "补充详情"), systemImage: "slider.horizontal.3") }.buttonStyle(.bordered).disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Spacer()
             }
@@ -603,8 +605,12 @@ private struct QuickCreateSheet: View {
             .navigationTitle(text("New task", "新任务"))
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button(text("Cancel", "取消")) { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button(text("Save", "保存")) { _ = save() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } }
         }
+        .tint(DWColors.accent)
         .presentationDetents([.height(300)])
         .presentationDragIndicator(.visible)
+        .presentationBackground(DWColors.surface(colorScheme))
+        // The block was just drawn; the next thing to do is name it.
+        .onAppear { nameFocused = true }
     }
 
     private func save() -> Bool { let name = title.trimmingCharacters(in: .whitespacesAndNewlines); guard !name.isEmpty else { return false }; var value = task; value.title = name; store.save(value); selectedTask = value; dismiss(); return true }

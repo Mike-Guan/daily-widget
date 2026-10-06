@@ -92,13 +92,18 @@ struct DailyWidgetWidgetView: View {
 
     private var mediumHome: some View {
         HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                dateLabel
-                nextLink(titleLines: 1).frame(maxHeight: .infinity)
+            // The whole left column is the one place that opens the app.
+            Link(destination: nextItem.map(taskURL) ?? todayURL ?? URL(string: "dailywidget://today")!) {
+                VStack(alignment: .leading, spacing: 8) {
+                    dateLabel
+                    nextCard(titleLines: 1).frame(maxHeight: .infinity)
+                }
+                .frame(width: 150)
+                .contentShape(Rectangle())
             }
-            .frame(width: 150)
             VStack(alignment: .leading, spacing: 6) {
-                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4); voiceButton }
+                HStack { countLabel(text("Today \(entry.snapshot.completed)/\(entry.snapshot.total)", "今天 \(entry.snapshot.completed)/\(entry.snapshot.total)")); Spacer(minLength: 4) }
+                    .frame(minHeight: 20)
                 taskList(limit: 3)
                 Spacer(minLength: 0)
             }
@@ -109,13 +114,12 @@ struct DailyWidgetWidgetView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack { dateLabel; Spacer(minLength: 4); countLabel(text("\(entry.snapshot.completed)/\(entry.snapshot.total) done", "\(entry.snapshot.completed)/\(entry.snapshot.total) 完成")) }
             progressBar
-            nextLink(titleLines: 1, showsEnd: true)
+            nextLink(titleLines: 1, showsEnd: true, fills: false)
             taskList(limit: 4)
             Spacer(minLength: 0)
             HStack {
                 Text(text("Inbox \(entry.snapshot.inboxCount)", "收集箱 \(entry.snapshot.inboxCount) 件")).font(.caption).foregroundStyle(DWColors.muted)
                 Spacer(minLength: 4)
-                voiceButton
             }
         }
     }
@@ -154,14 +158,15 @@ struct DailyWidgetWidgetView: View {
     }
 
     @ViewBuilder
-    private func nextLink(titleLines: Int, showsEnd: Bool = false) -> some View {
-        if let item = nextItem { Link(destination: taskURL(item)) { nextCard(titleLines: titleLines, showsEnd: showsEnd) } }
-        else { nextCard(titleLines: titleLines, showsEnd: showsEnd) }
+    private func nextLink(titleLines: Int, showsEnd: Bool = false, fills: Bool = true) -> some View {
+        if let item = nextItem { Link(destination: taskURL(item)) { nextCard(titleLines: titleLines, showsEnd: showsEnd, fills: fills) } }
+        else { nextCard(titleLines: titleLines, showsEnd: showsEnd, fills: fills) }
     }
 
-    private func nextCard(titleLines: Int, showsEnd: Bool = false) -> some View {
+    /// - Parameter fills: true where the card takes the remaining height and its text sits at the bottom (small, medium).
+    private func nextCard(titleLines: Int, showsEnd: Bool = false, fills: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Spacer(minLength: 0)
+            if fills { Spacer(minLength: 0) }
             if let item = nextItem {
                 Text(item.id == entry.snapshot.current?.id ? text("Now", "进行中") : text("Next", "下一件")).font(.caption2.weight(.semibold)).opacity(0.85)
                 Text(displayTitle(item)).font(.callout.weight(.bold)).lineLimit(titleLines).multilineTextAlignment(.leading)
@@ -202,24 +207,14 @@ struct DailyWidgetWidgetView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(text("Complete \(displayTitle(item))", "完成 \(displayTitle(item))"))
             }
-            Link(destination: taskURL(item)) {
-                HStack(spacing: 6) {
-                    Text(displayTitle(item)).font(.footnote.weight(.semibold)).foregroundStyle(DWColors.text).lineLimit(1)
-                    Spacer(minLength: 4)
-                    Text(item.start.map(time) ?? text("Any time", "全天")).font(.caption.monospacedDigit()).foregroundStyle(DWColors.muted)
-                }
+            // Rows do not open the app: only the circle acts here, so a stray tap on the list does nothing.
+            HStack(spacing: 6) {
+                Text(displayTitle(item)).font(.footnote.weight(.semibold)).foregroundStyle(DWColors.text).lineLimit(1)
+                Spacer(minLength: 4)
+                Text(item.start.map(time) ?? text("Any time", "全天")).font(.caption.monospacedDigit()).foregroundStyle(DWColors.muted)
             }
         }
         .padding(.vertical, 6)
-    }
-
-    private var voiceButton: some View {
-        Link(destination: URL(string: "dailywidget://quickadd")!) {
-            MicGlyph().fill(DWColors.accent).frame(width: 17, height: 17)
-                .frame(width: 34, height: 34)
-                .background(DWColors.accentSoft, in: Circle())
-        }
-        .accessibilityLabel(text("Add a task by voice", "语音记一件事"))
     }
 
     /// The task shown in the big card: the one running now, otherwise the earliest one still to come.
@@ -233,10 +228,21 @@ struct DailyWidgetWidgetView: View {
         visibleItems.filter { $0.id != nextItem?.id }.sorted { ($0.start ?? Int.max) < ($1.start ?? Int.max) }
     }
 
+    /// "35 分钟后" before the task starts, "还剩 40 分钟" while it runs. The number counts down on its
+    /// own; the system updates relative dates without a timeline reload.
     private func countdown(_ item: WidgetSnapshot.Item) -> Text {
-        guard let date = startDate(item), date > entry.date else { return Text(text("now", "进行中")) }
-        // Counts down on its own; the system updates relative dates without a timeline reload.
-        return Text(date, style: .relative)
+        if let start = startDate(item), start > entry.date {
+            return entry.snapshot.language == "en" ? Text("in ") + Text(start, style: .relative) : Text(start, style: .relative) + Text("后")
+        }
+        if let end = endDate(item), end > entry.date {
+            return entry.snapshot.language == "en" ? Text(end, style: .relative) + Text(" left") : Text("还剩 ") + Text(end, style: .relative)
+        }
+        return Text(text("now", "进行中"))
+    }
+
+    private func endDate(_ item: WidgetSnapshot.Item) -> Date? {
+        guard let end = item.end else { return nil }
+        return Calendar.current.date(byAdding: .minute, value: end, to: Calendar.current.startOfDay(for: Date.date(fromKey: entry.snapshot.date)))
     }
 
     private func timeRange(_ item: WidgetSnapshot.Item) -> String {
@@ -375,12 +381,14 @@ struct MicGlyph: Shape {
 struct QuickAddAccessoryWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "DailyWidgetQuickAdd", provider: DailyWidgetProvider()) { entry in
-            ZStack {
+            let circle = ZStack {
                 AccessoryWidgetBackground()
                 MicGlyph().fill(.primary).frame(width: 24, height: 24).widgetAccentable()
             }
+            // Opens the app straight into listening. iOS refuses to start the microphone while the app
+            // is in the background (audio session activation fails with '!int'), so nothing listens from here.
+            circle.widgetURL(URL(string: "dailywidget://quickadd"))
             .containerBackground(.clear, for: .widget)
-            .widgetURL(URL(string: "dailywidget://quickadd"))
             .accessibilityLabel(entry.snapshot.language == "en" ? "Add a task by voice" : "语音记一件事")
         }
         .configurationDisplayName("语音添加 · Voice add")
@@ -393,11 +401,11 @@ struct QuickAddAccessoryWidget: Widget {
 @available(iOS 18.0, *)
 struct QuickAddControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: "com.guanshiyang.dailywidget.quickadd") {
+        StaticControlConfiguration(kind: "com.guanshiyang.dailywidget.quickadd.open") {
             ControlWidgetButton(action: OpenQuickAddIntent()) { Label("记一件事", systemImage: "mic.fill") }
         }
         .displayName("记一件事")
-        .description("打开 Daily Widget 并开始听。Opens Daily Widget and starts listening.")
+        .description("打开 Daily Widget 并立刻开始听。Opens Daily Widget and starts listening.")
     }
 }
 

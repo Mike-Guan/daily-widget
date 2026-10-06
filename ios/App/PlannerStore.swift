@@ -75,20 +75,27 @@ final class PlannerStore: ObservableObject {
         Task { await ReminderScheduler.reconcile(tasks: tasks, english: english) }
     }
 
-    func addFromQuickAdd(_ draft: TaskDraft, jumpToDate: Bool = true) {
-        var task = newTask()
-        task.apply(draft)
-        if draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
+    /// The task as it was before a spoken change ("把健身改到晚上九点半"), so Undo can put it back. nil after an add.
+    @Published private(set) var recentlyChangedFrom: PlannerTask?
+
+    /// Applies one spoken or typed sentence: adds a task, or changes the one it talks about.
+    func applyQuickAdd(text: String, draft: TaskDraft, jumpToDate: Bool = true) {
+        let outcome = VoiceCommand.resolve(text: text, draft: draft, tasks: records, deviceID: deviceID)
+        let task = outcome.task
+        if case .changed(let previous, let current) = outcome, previous == current { return }
+        if case .added = outcome, draft.wantsReminder { ReminderPlan.setWanted(true, taskID: task.id) }
         save(task)
-        if jumpToDate, let date = draft.date { selectedDate = .date(fromKey: date) }
+        if jumpToDate, let date = task.date { selectedDate = .date(fromKey: date) }
         recentlyAddedEngine = TaskInterpreter.lastEngine
+        if case .changed(let previous, _) = outcome { recentlyChangedFrom = previous } else { recentlyChangedFrom = nil }
         recentlyAdded = records.first { $0.id == task.id }
     }
 
+    /// Undo for the banner: an added task is removed, a changed task goes back to how it was.
     func undoRecentlyAdded() {
         guard let task = recentlyAdded else { return }
         recentlyAdded = nil
-        delete(task)
+        if let previous = recentlyChangedFrom { recentlyChangedFrom = nil; save(previous) } else { delete(task) }
     }
 
     func delete(_ task: PlannerTask) {
