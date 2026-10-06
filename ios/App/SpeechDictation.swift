@@ -9,8 +9,6 @@ final class SpeechDictation: ObservableObject {
 
     @Published private(set) var transcript = ""
     @Published private(set) var state: State = .idle
-    /// Why the last start failed, in technical terms.
-    private(set) var lastFailure = ""
 
     private let engine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -18,9 +16,7 @@ final class SpeechDictation: ObservableObject {
 
     var isListening: Bool { state == .listening }
 
-    /// - Parameter fromBackground: true when the app is not on screen. A session that mixes with
-    ///   other audio is the only kind iOS lets an app activate from the background.
-    func start(english: Bool, fromBackground: Bool = false) async {
+    func start(english: Bool) async {
         guard state != .listening else { return }
         transcript = ""
         func message(_ en: String, _ zh: String) -> String { english ? en : zh }
@@ -35,14 +31,10 @@ final class SpeechDictation: ObservableObject {
             return
         }
 
-        var step = "audio session category"
         do {
             let session = AVAudioSession.sharedInstance()
-            if fromBackground { try session.setCategory(.playAndRecord, mode: .default, options: [.mixWithOthers, .defaultToSpeaker]) }
-            else { try session.setCategory(.record, mode: .measurement, options: []) }
-            step = "audio session activation"
+            try session.setCategory(.record, mode: .measurement, options: [])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
-            step = "audio engine"
 
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
@@ -69,8 +61,6 @@ final class SpeechDictation: ObservableObject {
             }
             state = .listening
         } catch {
-            // Kept for the diagnostics log: which step failed and the system's own error.
-            lastFailure = "\(step): \((error as NSError).domain) \((error as NSError).code) \(error.localizedDescription)"
             teardown()
             state = .unavailable(message("The microphone could not be started. You can type instead.", "麦克风没有启动成功，可以直接打字。"))
         }

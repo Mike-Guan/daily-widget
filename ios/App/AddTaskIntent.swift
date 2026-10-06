@@ -44,6 +44,28 @@ struct AddTaskIntent: AppIntent {
     }
 }
 
+/// Takes back a task that was just added by voice. It is tombstoned, like any delete, so sync agrees.
+struct UndoAddTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Undo add task"
+    static var openAppWhenRun = false
+    static var isDiscoverable = false
+
+    @Parameter(title: "Task ID") var taskID: String
+    init() {}
+    init(taskID: String) { self.taskID = taskID }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let repository = TaskRepository.shared else { throw AddTaskError.storageUnavailable }
+        let english = (WidgetSnapshot.stored(in: repository.directory)?.language ?? "zh") == "en"
+        try repository.mutate { tasks in
+            guard let index = tasks.firstIndex(where: { $0.id == taskID }) else { return }
+            tasks[index].deletedAt = ISO8601DateFormatter().string(from: .now)
+            tasks[index].touch(deviceID: "siri")
+        }
+        return .result(dialog: IntentDialog(stringLiteral: english ? "Removed." : "已撤销。"))
+    }
+}
+
 enum AddTaskError: LocalizedError {
     case storageUnavailable
     var errorDescription: String? { "Daily Widget could not open its storage. Open the app once and try again." }

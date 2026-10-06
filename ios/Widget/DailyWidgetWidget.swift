@@ -385,8 +385,8 @@ struct QuickAddAccessoryWidget: Widget {
                 AccessoryWidgetBackground()
                 MicGlyph().fill(.primary).frame(width: 24, height: 24).widgetAccentable()
             }
-            // Opens the app straight into listening. Starting the microphone with the app in the
-            // background is refused by iOS (session activation fails with '!int'), so this is the reliable path.
+            // Opens the app straight into listening. iOS refuses to start the microphone while the app
+            // is in the background (audio session activation fails with '!int'), so nothing listens from here.
             circle.widgetURL(URL(string: "dailywidget://quickadd"))
             .containerBackground(.clear, for: .widget)
             .accessibilityLabel(entry.snapshot.language == "en" ? "Add a task by voice" : "语音记一件事")
@@ -395,12 +395,6 @@ struct QuickAddAccessoryWidget: Widget {
         .description("点一下，直接说要记的事。Tap and say what to add.")
         .supportedFamilies([.accessoryCircular])
     }
-}
-
-@available(iOS 18.0, *)
-struct VoiceControlValue: ControlValueProvider {
-    var previewValue: Bool { false }
-    func currentValue() async throws -> Bool { VoiceCaptureStatus.isListening }
 }
 
 /// The same entry point as a control for the lock screen's bottom slots, Control Center and the Action Button.
@@ -415,30 +409,11 @@ struct QuickAddControl: ControlWidget {
     }
 }
 
-/// Experimental: listens without opening the app. iOS has refused the microphone in the background
-/// so far; this control stays so a different audio session setup can be tried on the device.
-@available(iOS 18.0, *)
-struct BackgroundVoiceControl: ControlWidget {
-    var body: some ControlWidgetConfiguration {
-        StaticControlConfiguration(kind: VoiceCaptureStatus.controlKind, provider: VoiceControlValue()) { listening in
-            // A toggle: the first tap starts listening and the control lights up, the second tap ends it.
-            ControlWidgetToggle("后台听（实验）", isOn: listening, action: ToggleVoiceCaptureIntent()) { on in
-                Label(on ? "正在听" : "后台听（实验）", systemImage: on ? "waveform" : "waveform.badge.mic")
-            }
-            .tint(DWColors.accent)
-        }
-        .displayName("后台听（实验）")
-        .description("不打开 App 直接听，可能不成功。Experimental: listens without opening the app.")
-    }
-}
-
 @main
 struct DailyWidgetBundle: WidgetBundle {
     var body: some Widget {
         DailyWidgetWidget()
         QuickAddAccessoryWidget()
         if #available(iOS 18.0, *) { QuickAddControl() }
-        if #available(iOS 18.0, *) { BackgroundVoiceControl() }
-        VoiceCaptureLiveActivity()
     }
 }
